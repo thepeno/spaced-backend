@@ -1,4 +1,4 @@
-import { users } from '@/db/user';
+import { users } from '@/db/schema';
 import { drizzle } from 'drizzle-orm/d1';
 
 /**
