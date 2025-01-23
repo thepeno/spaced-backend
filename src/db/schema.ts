@@ -12,6 +12,9 @@ export const users = sqliteTable('users', {
 	nextSeqNo: integer('next_seq_no').notNull().default(1),
 });
 
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+
 export const clients = sqliteTable(
 	'clients',
 	{
@@ -37,6 +40,9 @@ export const cards = sqliteTable('cards', {
 		.notNull()
 		.references(() => clients.id),
 });
+
+export type Card = typeof cards.$inferSelect;
+export type NewCard = typeof cards.$inferInsert;
 
 export const cardContents = sqliteTable('card_contents', {
 	cardId: text('card_id')
