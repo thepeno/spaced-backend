@@ -12,6 +12,7 @@ export default defineWorkersConfig({
 			},
 		},
 		include: ['test/**/*.test.ts'],
+		setupFiles: ['test/integration/setup.ts'],
 	},
 	plugins: [tsconfigPaths()],
 });
