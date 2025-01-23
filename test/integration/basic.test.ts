@@ -1,33 +1,22 @@
-import Database, { type Database as SqliteDatabase } from 'better-sqlite3';
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { env } from 'cloudflare:test';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 
-let db: SqliteDatabase;
 
-beforeEach(() => {
-	// Create new in-memory database for each test
-	db = new Database(':memory:');
-	db.pragma('journal_mode = WAL');
-
-	// Read and execute schema
-	const schema = readFileSync(join(__dirname, '../../schema.sql'), 'utf-8');
-
-	db.exec(schema);
+beforeEach(async () => {
+	await env.D1.exec('CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, email TEXT, password_hash TEXT)');
 });
 
-it('should insert a new user', () => {
-	const insert = db.prepare('INSERT INTO users (id, username, email, password_hash) VALUES (?, ?, ? ,?)');
-	const result = insert.run(
-		1,
-		'john_doe',
-		'john@test.com',
-		'password123',
-	);
-	expect(result.changes).toBe(1);
+it('should insert a new user', async () => {
+	const { success } = await env.D1.prepare('INSERT INTO users (id, username, email, password_hash) VALUES (?, ?, ?, ?)')
+		.bind(1, 'testuser', 'test@gmail.com', 'password')
+		.run();
+	expect(success).toBe(true);
+	const { results } = await env.D1.prepare('SELECT * FROM users').all();
+
+	expect(results.length).toBe(1);
+	expect(results[0].username).toBe('testuser');
 });
 
 afterEach(() => {
 	// Close database connection
-	db.close();
 });

@@ -15,9 +15,5 @@
     "typescript": "^5.5.2",
     "vitest": "2.1.8",
     "wrangler": "^3.105.0"
-  },
-  "dependencies": {
-    "@types/better-sqlite3": "^7.6.12",
-    "better-sqlite3": "^11.8.1"
   }
 }
