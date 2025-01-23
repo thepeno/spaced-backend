@@ -10,7 +10,8 @@
 		{
 			"binding": "D1",
       "database_name": "spaced-backend-dev-test",
-      "database_id": "79fb20e7-a5f3-43da-9c27-8e781b5a3beb"
+      "database_id": "79fb20e7-a5f3-43da-9c27-8e781b5a3beb",
+			"migrations_dir": "drizzle/migrations"
 		}
 	]
 }

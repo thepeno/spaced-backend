@@ -1,3 +1,6 @@
+import { users } from '@/db/user';
+import { drizzle } from 'drizzle-orm/d1';
+
 /**
  * Welcome to Cloudflare Workers! This is your first worker.
  *
@@ -13,6 +16,12 @@
 
 export default {
 	async fetch(request, env, ctx): Promise<Response> {
+		const db = drizzle(env.D1, {
+			schema: {
+				users,
+			},
+		});
+
 		return new Response('Hello World!');
 	},
 } satisfies ExportedHandler<Env>;

@@ -1,4 +1,5 @@
 import { defineWorkersConfig } from '@cloudflare/vitest-pool-workers/config';
+import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineWorkersConfig({
 	test: {
@@ -6,10 +7,11 @@ export default defineWorkersConfig({
 			workers: {
 				wrangler: { configPath: './wrangler.json' },
 				miniflare: {
-					d1Databases: ["D1"]
-				}
+					d1Databases: ['D1'],
+				},
 			},
 		},
 		include: ['test/**/*.test.ts'],
 	},
+	plugins: [tsconfigPaths()],
 });
