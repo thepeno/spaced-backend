@@ -7,8 +7,10 @@ export const testUser = {
 	username: 'testuser',
 	email: 'test@email.com',
 	passwordHash: 'password',
-}
+};
+
 export const testClientId = 'test-1';
+export const testClientId2 = 'test-2';
 
 export async function createTestUser(): Promise<schema.User> {
 	const db = drizzle(env.D1, {
@@ -18,7 +20,7 @@ export async function createTestUser(): Promise<schema.User> {
 	const [user] = await db
 		.insert(schema.users)
 		.values({
-			...testUser
+			...testUser,
 		})
 		.returning();
 
@@ -26,10 +28,16 @@ export async function createTestUser(): Promise<schema.User> {
 		throw new Error('Failed to create user');
 	}
 
-	await db.insert(schema.clients).values({
-		id: testClientId,
-		userId: user.id,
-	});
+	await db.insert(schema.clients).values([
+		{
+			id: testClientId,
+			userId: user.id,
+		},
+		{
+			id: testClientId2,
+			userId: user.id,
+		},
+	]);
 
 	return user;
 }

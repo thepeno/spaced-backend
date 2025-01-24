@@ -53,12 +53,13 @@ export async function handleCardOperation(userId: string, op: CardOperation, db:
     last_modified_client = ?,
     last_modified = ?
   WHERE
-    excluded.last_modified < ?
-    OR (excluded.last_modified = ?
-        AND excluded.last_modified_client < ?)
+    excluded.last_modified > last_modified
+    OR (excluded.last_modified = last_modified
+        AND excluded.last_modified_client > last_modified_client)
 `);
 
 	const timestampSeconds = op.timestamp / 1000;
+
 	await stmt
 		.bind(
 			timestampSeconds,
@@ -69,9 +70,6 @@ export async function handleCardOperation(userId: string, op: CardOperation, db:
 			seqNo,
 			op.clientId,
 			timestampSeconds,
-			timestampSeconds,
-			timestampSeconds,
-			op.clientId
 		)
 		.run();
 }
