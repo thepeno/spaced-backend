@@ -1,6 +1,15 @@
-import { COOKIE_EXPIRATION_TIME_MS, createSession, createUser, getUser, invalidateSession, verifyPassword } from '@/auth';
+import {
+	COOKIE_EXPIRATION_TIME_MS,
+	createSession,
+	createUser,
+	getUser,
+	invalidateSession,
+	SESSION_COOKIE_NAME,
+	verifyPassword,
+} from '@/auth';
 import { handleClientOperation, opToClient2ServerOp } from '@/client2server';
 import * as schema from '@/db/schema';
+import { sessionMiddleware } from '@/middleware/session';
 import { operationSchema } from '@/operation';
 import { getAllOpsFromSeqNoExclClient } from '@/server2client';
 import { zValidator } from '@hono/zod-validator';
@@ -15,9 +24,8 @@ const userid = 'test-user';
 const clientid = 'test-client';
 
 const app = new Hono<{ Bindings: Env }>();
-app.use(logger())
+app.use(logger());
 
-const SESSION_COOKIE_NAME = 'sid';
 const devCookieOptions: CookieOptions = {
 	expires: new Date(Date.now() + COOKIE_EXPIRATION_TIME_MS),
 	httpOnly: true,
@@ -154,5 +162,10 @@ app.post('/logout', async (c) => {
 	});
 });
 
+app.get('/me', sessionMiddleware, async (c) => {
+	const userId = c.get('userId');
 
-export default app;
+	return c.json({
+		userId,
+	});
+});

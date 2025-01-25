@@ -1,5 +1,6 @@
+import { DB } from '@/db';
 import * as schema from '@/db/schema';
-import { env } from 'cloudflare:test';
+import { env, SELF } from 'cloudflare:test';
 import { drizzle } from 'drizzle-orm/d1';
 
 export const testUserPassword = 'test-user-password';
@@ -42,4 +43,28 @@ export async function createTestUser(): Promise<schema.User> {
 	]);
 
 	return user;
+}
+
+export async function loginTestUser(): Promise<{
+	cookie: string;
+}> {
+	const response = await SELF.fetch('http://localhost:3000/login', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify({
+			email: testUserEmail,
+			password: testUserPassword,
+		}),
+	});
+
+	const cookie = response.headers.get('Set-Cookie');
+	if (!cookie) {
+		throw new Error('Failed to login');
+	}
+
+	return {
+		cookie,
+	};
 }

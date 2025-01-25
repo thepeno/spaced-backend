@@ -1,10 +1,11 @@
 // test/index.spec.ts
-import { USER_ALREADY_EXISTS_ERROR_MSG } from '@/auth';
+import { SESSION_COOKIE_NAME, USER_ALREADY_EXISTS_ERROR_MSG } from '@/auth';
 import * as schema from '@/db/schema';
 import { CardOperation } from '@/operation';
 import { env, SELF } from 'cloudflare:test';
+import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
-import { createTestUser, testUserEmail, testUserPassword } from 'test/integration/utils';
+import { createTestUser, loginTestUser, testUserEmail, testUserPassword } from 'test/integration/utils';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 // For now, you'll need to do something like this to get a correctly-typed
@@ -24,6 +25,10 @@ const cardOp1: CardOperation = {
 		id: 'test-card-1',
 	},
 };
+
+const db = drizzle(env.D1, {
+	schema,
+});
 
 describe('basic', () => {
 	it('responds with OK (integration style)', async () => {
@@ -56,7 +61,7 @@ describe('basic', () => {
 });
 
 describe('auth', () => {
-	describe('register', () => {
+	describe('/register', () => {
 		it('can register a user', async () => {
 			const response = await SELF.fetch('http://localhost:3000/register', {
 				method: 'POST',
@@ -98,7 +103,7 @@ describe('auth', () => {
 			});
 
 			expect(response.status).toBe(200);
-			expect(response.headers.get('Set-Cookie')).toContain('sid');
+			expect(response.headers.get('Set-Cookie')).toContain(SESSION_COOKIE_NAME);
 			expect(response.headers.get('Set-Cookie')).toContain('HttpOnly');
 			expect(response.headers.get('Set-Cookie')).toContain('Secure');
 
@@ -107,7 +112,7 @@ describe('auth', () => {
 		});
 	});
 
-	describe('login', () => {
+	describe('/login', () => {
 		it('can login a user', async () => {
 			const response = await SELF.fetch('http://localhost:3000/login', {
 				method: 'POST',
@@ -122,7 +127,7 @@ describe('auth', () => {
 				success: true,
 			});
 
-			expect(response.headers.get('Set-Cookie')).toContain('sid');
+			expect(response.headers.get('Set-Cookie')).toContain(SESSION_COOKIE_NAME);
 			expect(response.headers.get('Set-Cookie')).toContain('HttpOnly');
 			expect(response.headers.get('Set-Cookie')).toContain('Secure');
 
@@ -146,7 +151,7 @@ describe('auth', () => {
 		});
 	});
 
-	describe('logout', () => {
+	describe('/logout', () => {
 		it('can logout a user', async () => {
 			const loginResponse = await SELF.fetch('http://localhost:3000/login', {
 				method: 'POST',
@@ -170,7 +175,7 @@ describe('auth', () => {
 			const response = await SELF.fetch('http://localhost:3000/logout', {
 				method: 'POST',
 				headers: {
-					Cookie: `sid=${sid}`,
+					Cookie: `${SESSION_COOKIE_NAME}=${sid}`,
 				},
 			});
 
@@ -196,6 +201,82 @@ describe('auth', () => {
 			expect(await response.json()).toMatchObject({
 				success: false,
 			});
+		});
+	});
+
+	describe('/me session middleware', () => {
+		let cookie: string;
+		beforeEach(async () => {
+			const { cookie: cookieFromLogin } = await loginTestUser();
+			cookie = cookieFromLogin;
+		});
+
+		it('returns the user id', async () => {
+			const response = await SELF.fetch('http://localhost:3000/me', {
+				headers: {
+					Cookie: cookie,
+				},
+			});
+
+			const user = await db.query.users.findFirst({
+				where: eq(schema.users.email, testUserEmail),
+			});
+			expect(user).toBeDefined();
+			if (!user) {
+				throw new Error('User not found');
+			}
+
+			expect(response.status).toBe(200);
+			expect(await response.json()).toMatchObject({
+				userId: user.id,
+			});
+		});
+
+		it('returns 401 if no cookie', async () => {
+			const response = await SELF.fetch('http://localhost:3000/me');
+			expect(response.status).toBe(401);
+		});
+
+		it('returns 401 if cookie is invalid', async () => {
+			const response = await SELF.fetch('http://localhost:3000/me', {
+				headers: {
+					Cookie: 'invalid-cookie',
+				},
+			});
+			expect(response.status).toBe(401);
+		});
+
+		it('returns 401 if session does not exist', async () => {
+			await db.delete(schema.sessions).execute();
+
+			const response = await SELF.fetch('http://localhost:3000/me', {
+				headers: {
+					Cookie: cookie,
+				},
+			});
+			expect(response.status).toBe(401);
+		});
+
+		it('returns 401 if session is invalid', async () => {
+			await db.update(schema.sessions).set({ valid: false });
+
+			const response = await SELF.fetch('http://localhost:3000/me', {
+				headers: {
+					Cookie: cookie,
+				},
+			});
+			expect(response.status).toBe(401);
+		});
+
+		it('returns 401 if session is expired', async () => {
+			await db.update(schema.sessions).set({ expiresAt: new Date(Date.now() - 1000) });
+
+			const response = await SELF.fetch('http://localhost:3000/me', {
+				headers: {
+					Cookie: cookie,
+				},
+			});
+			expect(response.status).toBe(401);
 		});
 	});
 });
