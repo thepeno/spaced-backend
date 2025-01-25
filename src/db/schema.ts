@@ -65,6 +65,7 @@ export const cardDeleted = sqliteTable('card_deleted', {
 	cardId: text('card_id')
 		.primaryKey()
 		.references(() => cards.id),
+	deleted: integer('deleted', { mode: 'boolean' }).notNull().default(true),
 	lastModified: integer('last_modified', { mode: 'timestamp' })
 		.notNull()
 		.default(sql`(current_timestamp)`),
@@ -73,6 +74,8 @@ export const cardDeleted = sqliteTable('card_deleted', {
 		.notNull()
 		.references(() => clients.id),
 });
+
+export type CardDeleted = typeof cardDeleted.$inferSelect;
 
 export const decks = sqliteTable('decks', {
 	id: text('id').primaryKey(),

@@ -25,6 +25,7 @@ CREATE TABLE \`card_decks\` (
 --> statement-breakpoint
 CREATE TABLE \`card_deleted\` (
 	\`card_id\` text PRIMARY KEY NOT NULL,
+	\`deleted\` integer DEFAULT true NOT NULL,
 	\`last_modified\` integer DEFAULT (current_timestamp) NOT NULL,
 	\`seq_no\` integer NOT NULL,
 	\`last_modified_client\` text NOT NULL,

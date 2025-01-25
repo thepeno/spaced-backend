@@ -20,7 +20,16 @@ export type CardContentOperation = {
 	clientId: string;
 };
 
-export type Operation = CardOperation | CardContentOperation;
+export type CardDeletedOperation = {
+	type: 'cardDeleted';
+	payload: StripMetadata<schema.CardDeleted>;
+	timestamp: number;
+	clientId: string;
+};
+
+// TODO: the last write wins logic can be abstracted out into something
+// that's more generic and reusable between all LastWriteWins tables
+export type Operation = CardOperation | CardContentOperation | CardDeletedOperation;
 
 /**
  * Reserves the next sequence numbers for the user.
@@ -104,6 +113,31 @@ export async function handleCardContentOperation(op: CardContentOperation, db: D
 		});
 }
 
+export async function handleCardDeletedOperation(op: CardDeletedOperation, db: DB, seqNo: number) {
+	await db
+		.insert(schema.cardDeleted)
+		.values({
+			cardId: op.payload.cardId,
+			lastModified: new Date(op.timestamp),
+			lastModifiedClient: op.clientId,
+			seqNo,
+			deleted: op.payload.deleted,
+		})
+		.onConflictDoUpdate({
+			target: schema.cardDeleted.cardId,
+			set: {
+				lastModified: new Date(op.timestamp),
+				lastModifiedClient: op.clientId,
+				deleted: op.payload.deleted,
+			},
+			setWhere: sql`
+		excluded.last_modified > ${schema.cardDeleted.lastModified}
+		OR (excluded.last_modified = ${schema.cardDeleted.lastModified}
+			AND excluded.last_modified_client > ${schema.cardDeleted.lastModifiedClient})
+		`,
+		});
+}
+
 export async function handleOperation(userId: string, op: Operation, db: D1Database) {
 	const seqNo = await reserveSeqNo(userId, db, 1);
 	const drizzleDb = drizzle(db, {
@@ -115,7 +149,10 @@ export async function handleOperation(userId: string, op: Operation, db: D1Datab
 			return handleCardOperation(userId, op, drizzleDb, seqNo);
 		case 'cardContent':
 			return handleCardContentOperation(op, drizzleDb, seqNo);
+		case 'cardDeleted':
+			return handleCardDeletedOperation(op, drizzleDb, seqNo);
 		default:
+			const _exhaustiveCheck: never = op;
 			throw new Error(`Unknown operation type: ${JSON.stringify(op)}`);
 	}
 }

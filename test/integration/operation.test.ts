@@ -1,6 +1,6 @@
 import { DB } from '@/db';
 import * as schema from '@/db/schema';
-import { CardContentOperation, CardOperation, handleOperation } from '@/operation';
+import { CardContentOperation, CardDeletedOperation, CardOperation, handleOperation } from '@/operation';
 import { env } from 'cloudflare:test';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
@@ -115,7 +115,7 @@ describe('card operations', () => {
 	});
 });
 
-describe.only('card content operations', () => {
+describe('card content operations', () => {
 	const cardContentOp: CardContentOperation = {
 		type: 'cardContent',
 		clientId: testClientId,
@@ -223,5 +223,82 @@ describe.only('card content operations', () => {
 		expect(cardContent!.back).toBe(cardContentOp3.payload.back);
 		expect(cardContent!.lastModifiedClient).toBe(cardContentOp3.clientId);
 		expect(Math.abs(cardContent!.lastModified.getTime() - cardContentOp3.timestamp)).toBeLessThan(1000);
+	});
+});
+
+describe('card deleted operations', () => {
+	const cardDeletedOp: CardDeletedOperation = {
+		type: 'cardDeleted',
+		clientId: testClientId,
+		timestamp: now,
+		payload: {
+			cardId: 'test-card-1',
+			deleted: true,
+		},
+	};
+
+	const cardDeletedOp2: CardDeletedOperation = {
+		type: 'cardDeleted',
+		clientId: testClientId,
+		timestamp: now + 100000,
+		payload: {
+			cardId: 'test-card-1',
+			deleted: false,
+		},
+	};
+
+	const cardDeletedOp3: CardDeletedOperation = {
+		type: 'cardDeleted',
+		clientId: testClientId2,
+		timestamp: now,
+		payload: {
+			cardId: 'test-card-1',
+			deleted: false,
+		},
+	};
+
+	it('should insert a new card deleted', async () => {
+		await handleOperation(testUser.id, cardOp1, env.D1);
+		await handleOperation(testUser.id, cardDeletedOp, env.D1);
+
+		const cardDeleted = await db.query.cardDeleted.findFirst({
+			where: eq(schema.cardDeleted.cardId, cardDeletedOp.payload.cardId),
+		});
+
+		expect(cardDeleted).toBeDefined();
+		expect(cardDeleted!.cardId).toBe(cardDeletedOp.payload.cardId);
+		expect(cardDeleted!.deleted).toBe(cardDeletedOp.payload.deleted);
+		expect(cardDeleted!.lastModifiedClient).toBe(cardDeletedOp.clientId);
+		expect(Math.abs(cardDeleted!.lastModified.getTime() - cardDeletedOp.timestamp)).toBeLessThan(1000);
+	});
+
+	it('later operation wins', async () => {
+		await handleOperation(testUser.id, cardOp1, env.D1);
+		await handleOperation(testUser.id, cardDeletedOp, env.D1);
+		await handleOperation(testUser.id, cardDeletedOp2, env.D1);
+
+		const cardDeleted = await db.query.cardDeleted.findFirst({
+			where: eq(schema.cardDeleted.cardId, cardDeletedOp.payload.cardId),
+		});
+
+		expect(cardDeleted).toBeDefined();
+		expect(cardDeleted!.deleted).toBe(cardDeletedOp2.payload.deleted);
+		expect(cardDeleted!.lastModifiedClient).toBe(cardDeletedOp2.clientId);
+		expect(Math.abs(cardDeleted!.lastModified.getTime() - cardDeletedOp2.timestamp)).toBeLessThan(1000);
+	});
+
+	it('when same time, the higher client id wins', async () => {
+		await handleOperation(testUser.id, cardOp1, env.D1);
+		await handleOperation(testUser.id, cardDeletedOp, env.D1);
+		await handleOperation(testUser.id, cardDeletedOp3, env.D1);
+
+		const cardDeleted = await db.query.cardDeleted.findFirst({
+			where: eq(schema.cardDeleted.cardId, cardDeletedOp.payload.cardId),
+		});
+
+		expect(cardDeleted).toBeDefined();
+		expect(cardDeleted!.deleted).toBe(cardDeletedOp3.payload.deleted);
+		expect(cardDeleted!.lastModifiedClient).toBe(cardDeletedOp3.clientId);
+		expect(Math.abs(cardDeleted!.lastModified.getTime() - cardDeletedOp3.timestamp)).toBeLessThan(1000);
 	});
 });
