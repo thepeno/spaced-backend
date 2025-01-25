@@ -7,7 +7,7 @@ import {
 	ClientToServer,
 	handleClientOperation,
 	ServerToClient,
-} from '@/operation';
+} from '@/client2server';
 import { getAllOpsFromSeqNoExclClient } from '@/server2client';
 import { env } from 'cloudflare:test';
 import { eq } from 'drizzle-orm';

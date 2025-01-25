@@ -8,7 +8,7 @@ import {
 	DeckOperation,
 	handleClientOperation,
 	UpdateDeckCardOperation,
-} from '@/operation';
+} from '@/client2server';
 import { env } from 'cloudflare:test';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';

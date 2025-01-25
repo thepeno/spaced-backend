@@ -8,7 +8,7 @@ import {
 	Operation,
 	ServerToClient,
 	UpdateDeckCardOperation,
-} from '@/operation';
+} from '@/client2server';
 import { and, gt, ne } from 'drizzle-orm';
 
 async function getCardsFromSeqNo(db: DB, requestingClientId: string, seqNo: number): Promise<ServerToClient<CardOperation>[]> {
