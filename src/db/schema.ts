@@ -59,6 +59,8 @@ export const cardContents = sqliteTable('card_contents', {
 		.references(() => clients.id),
 });
 
+export type CardContent = typeof cardContents.$inferSelect;
+
 export const cardDeleted = sqliteTable('card_deleted', {
 	cardId: text('card_id')
 		.primaryKey()

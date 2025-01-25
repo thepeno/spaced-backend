@@ -13,7 +13,14 @@ export type CardOperation = {
 	clientId: string;
 };
 
-export type Operation = CardOperation;
+export type CardContentOperation = {
+	type: 'cardContent';
+	payload: StripMetadata<schema.CardContent>;
+	timestamp: number;
+	clientId: string;
+};
+
+export type Operation = CardOperation | CardContentOperation;
 
 /**
  * Reserves the next sequence numbers for the user.
@@ -70,6 +77,33 @@ export async function handleCardOperation(userId: string, op: CardOperation, db:
 		});
 }
 
+export async function handleCardContentOperation(op: CardContentOperation, db: DB, seqNo: number) {
+	await db
+		.insert(schema.cardContents)
+		.values({
+			cardId: op.payload.cardId,
+			front: op.payload.front,
+			back: op.payload.back,
+			lastModified: new Date(op.timestamp),
+			lastModifiedClient: op.clientId,
+			seqNo,
+		})
+		.onConflictDoUpdate({
+			target: schema.cardContents.cardId,
+			set: {
+				front: op.payload.front,
+				back: op.payload.back,
+				lastModified: new Date(op.timestamp),
+				lastModifiedClient: op.clientId,
+			},
+			setWhere: sql`
+		excluded.last_modified > ${schema.cardContents.lastModified}
+		OR (excluded.last_modified = ${schema.cardContents.lastModified}
+			AND excluded.last_modified_client > ${schema.cardContents.lastModifiedClient})
+		`,
+		});
+}
+
 export async function handleOperation(userId: string, op: Operation, db: D1Database) {
 	const seqNo = await reserveSeqNo(userId, db, 1);
 	const drizzleDb = drizzle(db, {
@@ -79,7 +113,9 @@ export async function handleOperation(userId: string, op: Operation, db: D1Datab
 	switch (op.type) {
 		case 'card':
 			return handleCardOperation(userId, op, drizzleDb, seqNo);
+		case 'cardContent':
+			return handleCardContentOperation(op, drizzleDb, seqNo);
 		default:
-			throw new Error(`Unknown operation type: ${op.type}`);
+			throw new Error(`Unknown operation type: ${JSON.stringify(op)}`);
 	}
 }
