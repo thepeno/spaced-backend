@@ -4,8 +4,9 @@ import {
 	CardContentOperation,
 	CardDeletedOperation,
 	CardOperation,
+	ClientToServer,
 	DeckOperation,
-	handleOperation,
+	handleClientOperation,
 	UpdateDeckCardOperation,
 } from '@/operation';
 import { env } from 'cloudflare:test';
@@ -25,8 +26,9 @@ beforeEach(async () => {
 
 const now = Date.now();
 
-const cardOp1: CardOperation = {
+const cardOp1: ClientToServer<CardOperation> = {
 	type: 'card',
+	userId: testUser.id,
 	clientId: testClientId,
 	timestamp: now,
 	payload: {
@@ -34,8 +36,9 @@ const cardOp1: CardOperation = {
 	},
 };
 
-const cardOp2: CardOperation = {
+const cardOp2: ClientToServer<CardOperation> = {
 	type: 'card',
+	userId: testUser.id,
 	clientId: testClientId,
 	timestamp: now + 1000,
 	payload: {
@@ -43,8 +46,9 @@ const cardOp2: CardOperation = {
 	},
 };
 
-const cardOp3: CardOperation = {
+const cardOp3: ClientToServer<CardOperation> = {
 	type: 'card',
+	userId: testUser.id,
 	clientId: testClientId2,
 	timestamp: now + 1000,
 	payload: {
@@ -62,7 +66,7 @@ describe('card operations', () => {
 	});
 
 	it('should insert a new card', async () => {
-		await handleOperation(testUser.id, cardOp1, env.D1);
+		await handleClientOperation(cardOp1, env.D1);
 		const card = await db.query.cards.findFirst({
 			where: eq(schema.cards.id, cardOp1.payload.id),
 		});
@@ -84,8 +88,8 @@ describe('card operations', () => {
 	});
 
 	it('later operation wins', async () => {
-		await handleOperation(testUser.id, cardOp1, env.D1);
-		await handleOperation(testUser.id, cardOp2, env.D1);
+		await handleClientOperation(cardOp1, env.D1);
+		await handleClientOperation(cardOp2, env.D1);
 
 		const card = await db.query.cards.findFirst({
 			where: eq(schema.cards.id, cardOp1.payload.id),
@@ -96,8 +100,8 @@ describe('card operations', () => {
 	});
 
 	it('later operation wins even when it comes first', async () => {
-		await handleOperation(testUser.id, cardOp2, env.D1);
-		await handleOperation(testUser.id, cardOp1, env.D1);
+		await handleClientOperation(cardOp2, env.D1);
+		await handleClientOperation(cardOp1, env.D1);
 
 		const card = await db.query.cards.findFirst({
 			where: eq(schema.cards.id, cardOp1.payload.id),
@@ -109,8 +113,8 @@ describe('card operations', () => {
 	});
 
 	it('when same time, the higher client id wins', async () => {
-		await handleOperation(testUser.id, cardOp1, env.D1);
-		await handleOperation(testUser.id, cardOp3, env.D1);
+		await handleClientOperation(cardOp1, env.D1);
+		await handleClientOperation(cardOp3, env.D1);
 
 		const card = await db.query.cards.findFirst({
 			where: eq(schema.cards.id, cardOp1.payload.id),
@@ -123,8 +127,9 @@ describe('card operations', () => {
 });
 
 describe('card content operations', () => {
-	const cardContentOp: CardContentOperation = {
+	const cardContentOp: ClientToServer<CardContentOperation> = {
 		type: 'cardContent',
+		userId: testUser.id,
 		clientId: testClientId,
 		timestamp: now,
 		payload: {
@@ -134,8 +139,9 @@ describe('card content operations', () => {
 		},
 	};
 
-	const cardContentOp2: CardContentOperation = {
+	const cardContentOp2: ClientToServer<CardContentOperation> = {
 		type: 'cardContent',
+		userId: testUser.id,
 		clientId: testClientId,
 		timestamp: now + 100000,
 		payload: {
@@ -145,8 +151,9 @@ describe('card content operations', () => {
 		},
 	};
 
-	const cardContentOp3: CardContentOperation = {
+	const cardContentOp3: ClientToServer<CardContentOperation> = {
 		type: 'cardContent',
+		userId: testUser.id,
 		clientId: testClientId2,
 		timestamp: now,
 		payload: {
@@ -157,8 +164,8 @@ describe('card content operations', () => {
 	};
 
 	it('should insert a new card content', async () => {
-		await handleOperation(testUser.id, cardOp1, env.D1);
-		await handleOperation(testUser.id, cardContentOp, env.D1);
+		await handleClientOperation(cardOp1, env.D1);
+		await handleClientOperation(cardContentOp, env.D1);
 
 		const cardContent = await db.query.cardContents.findFirst({
 			where: eq(schema.cardContents.cardId, cardContentOp.payload.cardId),
@@ -170,8 +177,8 @@ describe('card content operations', () => {
 	});
 
 	it('should do nothing if card content comes after card creation', async () => {
-		await handleOperation(testUser.id, cardOp1, env.D1);
-		await handleOperation(testUser.id, cardContentOp, env.D1);
+		await handleClientOperation(cardOp1, env.D1);
+		await handleClientOperation(cardContentOp, env.D1);
 
 		const cardContent = await db.query.cardContents.findFirst({
 			where: eq(schema.cardContents.cardId, cardContentOp.payload.cardId),
@@ -185,9 +192,9 @@ describe('card content operations', () => {
 	});
 
 	it('should not change card content if card is updated after card content', async () => {
-		await handleOperation(testUser.id, cardOp1, env.D1);
-		await handleOperation(testUser.id, cardContentOp, env.D1);
-		await handleOperation(testUser.id, cardOp2, env.D1);
+		await handleClientOperation(cardOp1, env.D1);
+		await handleClientOperation(cardContentOp, env.D1);
+		await handleClientOperation(cardOp2, env.D1);
 
 		const cardContent = await db.query.cardContents.findFirst({
 			where: eq(schema.cardContents.cardId, cardContentOp.payload.cardId),
@@ -201,9 +208,9 @@ describe('card content operations', () => {
 	});
 
 	it('later operation wins', async () => {
-		await handleOperation(testUser.id, cardOp1, env.D1);
-		await handleOperation(testUser.id, cardContentOp, env.D1);
-		await handleOperation(testUser.id, cardContentOp2, env.D1);
+		await handleClientOperation(cardOp1, env.D1);
+		await handleClientOperation(cardContentOp, env.D1);
+		await handleClientOperation(cardContentOp2, env.D1);
 
 		const cardContent = await db.query.cardContents.findFirst({
 			where: eq(schema.cardContents.cardId, cardContentOp.payload.cardId),
@@ -217,9 +224,9 @@ describe('card content operations', () => {
 	});
 
 	it('when same time, the higher client id wins', async () => {
-		await handleOperation(testUser.id, cardOp1, env.D1);
-		await handleOperation(testUser.id, cardContentOp, env.D1);
-		await handleOperation(testUser.id, cardContentOp3, env.D1);
+		await handleClientOperation(cardOp1, env.D1);
+		await handleClientOperation(cardContentOp, env.D1);
+		await handleClientOperation(cardContentOp3, env.D1);
 
 		const cardContent = await db.query.cardContents.findFirst({
 			where: eq(schema.cardContents.cardId, cardContentOp.payload.cardId),
@@ -234,8 +241,9 @@ describe('card content operations', () => {
 });
 
 describe('card deleted operations', () => {
-	const cardDeletedOp: CardDeletedOperation = {
+	const cardDeletedOp: ClientToServer<CardDeletedOperation> = {
 		type: 'cardDeleted',
+		userId: testUser.id,
 		clientId: testClientId,
 		timestamp: now,
 		payload: {
@@ -244,8 +252,9 @@ describe('card deleted operations', () => {
 		},
 	};
 
-	const cardDeletedOp2: CardDeletedOperation = {
+	const cardDeletedOp2: ClientToServer<CardDeletedOperation> = {
 		type: 'cardDeleted',
+		userId: testUser.id,
 		clientId: testClientId,
 		timestamp: now + 100000,
 		payload: {
@@ -254,8 +263,9 @@ describe('card deleted operations', () => {
 		},
 	};
 
-	const cardDeletedOp3: CardDeletedOperation = {
+	const cardDeletedOp3: ClientToServer<CardDeletedOperation> = {
 		type: 'cardDeleted',
+		userId: testUser.id,
 		clientId: testClientId2,
 		timestamp: now,
 		payload: {
@@ -265,8 +275,8 @@ describe('card deleted operations', () => {
 	};
 
 	it('should insert a new card deleted', async () => {
-		await handleOperation(testUser.id, cardOp1, env.D1);
-		await handleOperation(testUser.id, cardDeletedOp, env.D1);
+		await handleClientOperation(cardOp1, env.D1);
+		await handleClientOperation(cardDeletedOp, env.D1);
 
 		const cardDeleted = await db.query.cardDeleted.findFirst({
 			where: eq(schema.cardDeleted.cardId, cardDeletedOp.payload.cardId),
@@ -280,9 +290,9 @@ describe('card deleted operations', () => {
 	});
 
 	it('later operation wins', async () => {
-		await handleOperation(testUser.id, cardOp1, env.D1);
-		await handleOperation(testUser.id, cardDeletedOp, env.D1);
-		await handleOperation(testUser.id, cardDeletedOp2, env.D1);
+		await handleClientOperation(cardOp1, env.D1);
+		await handleClientOperation(cardDeletedOp, env.D1);
+		await handleClientOperation(cardDeletedOp2, env.D1);
 
 		const cardDeleted = await db.query.cardDeleted.findFirst({
 			where: eq(schema.cardDeleted.cardId, cardDeletedOp.payload.cardId),
@@ -295,9 +305,9 @@ describe('card deleted operations', () => {
 	});
 
 	it('when same time, the higher client id wins', async () => {
-		await handleOperation(testUser.id, cardOp1, env.D1);
-		await handleOperation(testUser.id, cardDeletedOp, env.D1);
-		await handleOperation(testUser.id, cardDeletedOp3, env.D1);
+		await handleClientOperation(cardOp1, env.D1);
+		await handleClientOperation(cardDeletedOp, env.D1);
+		await handleClientOperation(cardDeletedOp3, env.D1);
 
 		const cardDeleted = await db.query.cardDeleted.findFirst({
 			where: eq(schema.cardDeleted.cardId, cardDeletedOp.payload.cardId),
@@ -310,8 +320,9 @@ describe('card deleted operations', () => {
 	});
 });
 
-const deckOp: DeckOperation = {
+const deckOp: ClientToServer<DeckOperation> = {
 	type: 'deck',
+	userId: testUser.id,
 	clientId: testClientId,
 	timestamp: now,
 	payload: {
@@ -321,8 +332,9 @@ const deckOp: DeckOperation = {
 		deleted: false,
 	},
 };
-const deckOp2: DeckOperation = {
+const deckOp2: ClientToServer<DeckOperation> = {
 	type: 'deck',
+	userId: testUser.id,
 	clientId: testClientId,
 	timestamp: now + 100000,
 	payload: {
@@ -333,8 +345,9 @@ const deckOp2: DeckOperation = {
 	},
 };
 
-const deckOp3: DeckOperation = {
+const deckOp3: ClientToServer<DeckOperation> = {
 	type: 'deck',
+	userId: testUser.id,
 	clientId: testClientId2,
 	timestamp: now,
 	payload: {
@@ -347,7 +360,7 @@ const deckOp3: DeckOperation = {
 
 describe('deck operations', () => {
 	it('should insert a new deck', async () => {
-		await handleOperation(testUser.id, deckOp, env.D1);
+		await handleClientOperation(deckOp, env.D1);
 		const deck = await db.query.decks.findFirst({
 			where: eq(schema.decks.id, deckOp.payload.id),
 		});
@@ -361,8 +374,8 @@ describe('deck operations', () => {
 	});
 
 	it('later operation wins', async () => {
-		await handleOperation(testUser.id, deckOp, env.D1);
-		await handleOperation(testUser.id, deckOp2, env.D1);
+		await handleClientOperation(deckOp, env.D1);
+		await handleClientOperation(deckOp2, env.D1);
 
 		const deck = await db.query.decks.findFirst({
 			where: eq(schema.decks.id, deckOp.payload.id),
@@ -377,8 +390,8 @@ describe('deck operations', () => {
 	});
 
 	it('when same time, the higher client id wins', async () => {
-		await handleOperation(testUser.id, deckOp, env.D1);
-		await handleOperation(testUser.id, deckOp3, env.D1);
+		await handleClientOperation(deckOp, env.D1);
+		await handleClientOperation(deckOp3, env.D1);
 
 		const deck = await db.query.decks.findFirst({
 			where: eq(schema.decks.id, deckOp.payload.id),
@@ -395,8 +408,9 @@ describe('deck operations', () => {
 });
 
 describe('update deck card operations', () => {
-	const updateDeckCardOp: UpdateDeckCardOperation = {
+	const updateDeckCardOp: ClientToServer<UpdateDeckCardOperation> = {
 		type: 'updateDeckCard',
+		userId: testUser.id,
 		clientId: testClientId,
 		timestamp: now,
 		payload: {
@@ -406,8 +420,9 @@ describe('update deck card operations', () => {
 		},
 	};
 
-	const updateDeckCardOp2: UpdateDeckCardOperation = {
+	const updateDeckCardOp2: ClientToServer<UpdateDeckCardOperation> = {
 		type: 'updateDeckCard',
+		userId: testUser.id,
 		clientId: testClientId,
 		timestamp: now - 10000,
 		payload: {
@@ -418,10 +433,10 @@ describe('update deck card operations', () => {
 	};
 
 	it('should update the deck card', async () => {
-		await handleOperation(testUser.id, cardOp1, env.D1);
-		await handleOperation(testUser.id, deckOp, env.D1);
+		await handleClientOperation(cardOp1, env.D1);
+		await handleClientOperation(deckOp, env.D1);
 
-		await handleOperation(testUser.id, updateDeckCardOp, env.D1);
+		await handleClientOperation(updateDeckCardOp, env.D1);
 
 		const cardDeck = await db.query.cardDecks.findFirst({
 			where: eq(schema.cardDecks.cardId, updateDeckCardOp.payload.cardId),
@@ -433,10 +448,10 @@ describe('update deck card operations', () => {
 	});
 
 	it('higher clcount wins, even if it comes first', async () => {
-		await handleOperation(testUser.id, cardOp1, env.D1);
-		await handleOperation(testUser.id, deckOp, env.D1);
-		await handleOperation(testUser.id, updateDeckCardOp2, env.D1);
-		await handleOperation(testUser.id, updateDeckCardOp, env.D1);
+		await handleClientOperation(cardOp1, env.D1);
+		await handleClientOperation(deckOp, env.D1);
+		await handleClientOperation(updateDeckCardOp2, env.D1);
+		await handleClientOperation(updateDeckCardOp, env.D1);
 
 		const cardDeck = await db.query.cardDecks.findFirst({
 			where: eq(schema.cardDecks.cardId, updateDeckCardOp.payload.cardId),

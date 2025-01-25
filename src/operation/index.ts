@@ -10,40 +10,41 @@ export type CardOperation = {
 	type: 'card';
 	payload: StripMetadata<Card>;
 	timestamp: number;
-	clientId: string;
 };
 
 export type CardContentOperation = {
 	type: 'cardContent';
 	payload: StripMetadata<schema.CardContent>;
 	timestamp: number;
-	clientId: string;
 };
 
 export type CardDeletedOperation = {
 	type: 'cardDeleted';
 	payload: StripMetadata<schema.CardDeleted>;
 	timestamp: number;
-	clientId: string;
 };
 
 export type DeckOperation = {
 	type: 'deck';
 	payload: StripMetadata<schema.Deck>;
 	timestamp: number;
-	clientId: string;
 };
 
 export type UpdateDeckCardOperation = {
 	type: 'updateDeckCard';
 	payload: StripMetadata<schema.CardDeck>;
 	timestamp: number;
-	clientId: string;
 };
 
 // TODO: the last write wins logic can be abstracted out into something
 // that's more generic and reusable between all LastWriteWins tables
 export type Operation = CardOperation | CardContentOperation | CardDeletedOperation | DeckOperation | UpdateDeckCardOperation;
+
+/** Represents an operation sent from the client to the server */
+export type ClientToServer<T extends Operation> = T & { clientId: string; userId: string };
+
+/** Represents an operation sent from the server to the client */
+export type ServerToClient<T extends Operation> = T & { seqNo: number };
 
 /**
  * Reserves the next sequence numbers for the user.
@@ -72,7 +73,7 @@ async function reserveSeqNo(userId: string, db: D1Database, length: number): Pro
 	return result.next_seq_no as number;
 }
 
-export async function handleCardOperation(userId: string, op: CardOperation, db: DB, seqNo: number) {
+export async function handleCardOperation(op: ClientToServer<CardOperation>, db: DB, seqNo: number) {
 	// Drizzle's transactions are not supported in D1
 	// https://github.com/drizzle-team/drizzle-orm/issues/2463
 	// so we reserve the sequence number separately first
@@ -83,7 +84,7 @@ export async function handleCardOperation(userId: string, op: CardOperation, db:
 			lastModifiedClient: op.clientId,
 			seqNo,
 			id: op.payload.id,
-			userId,
+			userId: op.userId,
 		})
 		.onConflictDoUpdate({
 			target: schema.cards.id,
@@ -100,7 +101,7 @@ export async function handleCardOperation(userId: string, op: CardOperation, db:
 		});
 }
 
-export async function handleCardContentOperation(op: CardContentOperation, db: DB, seqNo: number) {
+export async function handleCardContentOperation(op: ClientToServer<CardContentOperation>, db: DB, seqNo: number) {
 	await db
 		.insert(schema.cardContents)
 		.values({
@@ -127,7 +128,7 @@ export async function handleCardContentOperation(op: CardContentOperation, db: D
 		});
 }
 
-export async function handleCardDeletedOperation(op: CardDeletedOperation, db: DB, seqNo: number) {
+export async function handleCardDeletedOperation(op: ClientToServer<CardDeletedOperation>, db: DB, seqNo: number) {
 	await db
 		.insert(schema.cardDeleted)
 		.values({
@@ -152,7 +153,7 @@ export async function handleCardDeletedOperation(op: CardDeletedOperation, db: D
 		});
 }
 
-export async function handleDeckOperation(userId: string, op: DeckOperation, db: DB, seqNo: number) {
+export async function handleDeckOperation(op: ClientToServer<DeckOperation>, db: DB, seqNo: number) {
 	await db
 		.insert(schema.decks)
 		.values({
@@ -163,7 +164,7 @@ export async function handleDeckOperation(userId: string, op: DeckOperation, db:
 			lastModified: new Date(op.timestamp),
 			lastModifiedClient: op.clientId,
 			seqNo,
-			userId,
+			userId: op.userId,
 		})
 		.onConflictDoUpdate({
 			target: schema.decks.id,
@@ -185,7 +186,7 @@ export async function handleDeckOperation(userId: string, op: DeckOperation, db:
 // Card - Deck relation modelled using a CLSet
 // If the count is even, the card is in the deck
 // The join operation just takes the max of the two counts
-export async function handleUpdateDeckCardOperation(op: UpdateDeckCardOperation, db: DB, seqNo: number) {
+export async function handleUpdateDeckCardOperation(op: ClientToServer<UpdateDeckCardOperation>, db: DB, seqNo: number) {
 	await db
 		.insert(schema.cardDecks)
 		.values({
@@ -207,22 +208,21 @@ export async function handleUpdateDeckCardOperation(op: UpdateDeckCardOperation,
 		});
 }
 
-
-export async function handleOperation(userId: string, op: Operation, db: D1Database) {
-	const seqNo = await reserveSeqNo(userId, db, 1);
+export async function handleClientOperation(op: ClientToServer<Operation>, db: D1Database) {
+	const seqNo = await reserveSeqNo(op.userId, db, 1);
 	const drizzleDb = drizzle(db, {
 		schema,
 	});
 
 	switch (op.type) {
 		case 'card':
-			return handleCardOperation(userId, op, drizzleDb, seqNo);
+			return handleCardOperation(op, drizzleDb, seqNo);
 		case 'cardContent':
 			return handleCardContentOperation(op, drizzleDb, seqNo);
 		case 'cardDeleted':
 			return handleCardDeletedOperation(op, drizzleDb, seqNo);
 		case 'deck':
-			return handleDeckOperation(userId, op, drizzleDb, seqNo);
+			return handleDeckOperation(op, drizzleDb, seqNo);
 		case 'updateDeckCard':
 			return handleUpdateDeckCardOperation(op, drizzleDb, seqNo);
 		default:
