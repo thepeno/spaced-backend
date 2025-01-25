@@ -119,6 +119,7 @@ export async function handleCardContentOperation(op: ClientToServer<CardContentO
 				back: op.payload.back,
 				lastModified: new Date(op.timestamp),
 				lastModifiedClient: op.clientId,
+				seqNo,
 			},
 			setWhere: sql`
 		excluded.last_modified > ${schema.cardContents.lastModified}
@@ -144,6 +145,7 @@ export async function handleCardDeletedOperation(op: ClientToServer<CardDeletedO
 				lastModified: new Date(op.timestamp),
 				lastModifiedClient: op.clientId,
 				deleted: op.payload.deleted,
+				seqNo,
 			},
 			setWhere: sql`
 		excluded.last_modified > ${schema.cardDeleted.lastModified}
@@ -174,6 +176,7 @@ export async function handleDeckOperation(op: ClientToServer<DeckOperation>, db:
 				deleted: op.payload.deleted,
 				lastModified: new Date(op.timestamp),
 				lastModifiedClient: op.clientId,
+				seqNo,
 			},
 			setWhere: sql`
 		excluded.last_modified > ${schema.decks.lastModified}
@@ -203,6 +206,7 @@ export async function handleUpdateDeckCardOperation(op: ClientToServer<UpdateDec
 				clCount: op.payload.clCount,
 				lastModified: new Date(op.timestamp),
 				lastModifiedClient: op.clientId,
+				seqNo,
 			},
 			setWhere: sql`excluded.cl_count > ${schema.cardDecks.clCount}`,
 		});
@@ -210,6 +214,7 @@ export async function handleUpdateDeckCardOperation(op: ClientToServer<UpdateDec
 
 export async function handleClientOperation(op: ClientToServer<Operation>, db: D1Database) {
 	const seqNo = await reserveSeqNo(op.userId, db, 1);
+
 	const drizzleDb = drizzle(db, {
 		schema,
 	});

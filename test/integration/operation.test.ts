@@ -221,6 +221,7 @@ describe('card content operations', () => {
 		expect(cardContent!.back).toBe(cardContentOp2.payload.back);
 		expect(cardContent!.lastModifiedClient).toBe(cardContentOp2.clientId);
 		expect(Math.abs(cardContent!.lastModified.getTime() - cardContentOp2.timestamp)).toBeLessThan(1000);
+		expect(cardContent!.seqNo).toBe(3);
 	});
 
 	it('when same time, the higher client id wins', async () => {
@@ -237,6 +238,7 @@ describe('card content operations', () => {
 		expect(cardContent!.back).toBe(cardContentOp3.payload.back);
 		expect(cardContent!.lastModifiedClient).toBe(cardContentOp3.clientId);
 		expect(Math.abs(cardContent!.lastModified.getTime() - cardContentOp3.timestamp)).toBeLessThan(1000);
+		expect(cardContent!.seqNo).toBe(3);
 	});
 });
 
@@ -302,6 +304,7 @@ describe('card deleted operations', () => {
 		expect(cardDeleted!.deleted).toBe(cardDeletedOp2.payload.deleted);
 		expect(cardDeleted!.lastModifiedClient).toBe(cardDeletedOp2.clientId);
 		expect(Math.abs(cardDeleted!.lastModified.getTime() - cardDeletedOp2.timestamp)).toBeLessThan(1000);
+		expect(cardDeleted!.seqNo).toBe(3);
 	});
 
 	it('when same time, the higher client id wins', async () => {
@@ -317,6 +320,7 @@ describe('card deleted operations', () => {
 		expect(cardDeleted!.deleted).toBe(cardDeletedOp3.payload.deleted);
 		expect(cardDeleted!.lastModifiedClient).toBe(cardDeletedOp3.clientId);
 		expect(Math.abs(cardDeleted!.lastModified.getTime() - cardDeletedOp3.timestamp)).toBeLessThan(1000);
+		expect(cardDeleted!.seqNo).toBe(3);
 	});
 });
 
@@ -387,6 +391,7 @@ describe('deck operations', () => {
 		expect(deck!.deleted).toBe(deckOp2.payload.deleted);
 		expect(deck!.lastModifiedClient).toBe(deckOp2.clientId);
 		expect(Math.abs(deck!.lastModified.getTime() - deckOp2.timestamp)).toBeLessThan(1000);
+		expect(deck!.seqNo).toBe(2);
 	});
 
 	it('when same time, the higher client id wins', async () => {
@@ -404,6 +409,7 @@ describe('deck operations', () => {
 		expect(deck!.deleted).toBe(deckOp3.payload.deleted);
 		expect(deck!.lastModifiedClient).toBe(deckOp3.clientId);
 		expect(Math.abs(deck!.lastModified.getTime() - deckOp3.timestamp)).toBeLessThan(1000);
+		expect(deck!.seqNo).toBe(2);
 	});
 });
 
@@ -460,5 +466,6 @@ describe('update deck card operations', () => {
 		expect(cardDeck!.clCount).toBe(updateDeckCardOp2.payload.clCount);
 		expect(cardDeck!.lastModifiedClient).toBe(updateDeckCardOp2.clientId);
 		expect(Math.abs(cardDeck!.lastModified.getTime() - updateDeckCardOp2.timestamp)).toBeLessThan(1000);
+		expect(cardDeck!.seqNo).toBe(3);
 	});
 });
