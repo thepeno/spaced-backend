@@ -1,4 +1,8 @@
+import { DB } from '@/db';
+import * as schema from '@/db/schema';
 import { Card } from '@/db/schema';
+import { sql } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/d1';
 
 type StripMetadata<T> = Omit<T, 'seqNo' | 'lastModifiedClient' | 'userId' | 'lastModified'>;
 
@@ -13,6 +17,8 @@ export type Operation = CardOperation;
 
 /**
  * Reserves the next sequence numbers for the user.
+ * This is okay as the sequence numbers only need to monotonically increase
+ * and not necessarily be strictly consecutive.
  *
  * @param userId - The ID of the user.
  * @param db - The database connection.
@@ -36,50 +42,43 @@ async function reserveSeqNo(userId: string, db: D1Database, length: number): Pro
 	return result.next_seq_no as number;
 }
 
-export async function handleCardOperation(userId: string, op: CardOperation, db: D1Database, seqNo: number) {
+export async function handleCardOperation(userId: string, op: CardOperation, db: DB, seqNo: number) {
 	// Drizzle's transactions are not supported in D1
 	// https://github.com/drizzle-team/drizzle-orm/issues/2463
-	// Sqlite is also limited in its upsert capabilities
-	// we must use transactions for Cloudflare D1
-
-	// Update also cannot be in the CTE section
-	const stmt = db.prepare(`
-  INSERT INTO cards (last_modified, last_modified_client, seq_no, id, user_id)
-  VALUES (?, ?, ?, ?, ?)
-  ON CONFLICT(id)
-  DO UPDATE SET
-    -- assuming op.payload fields here
-    seq_no = ?,
-    last_modified_client = ?,
-    last_modified = ?
-  WHERE
-    excluded.last_modified > last_modified
-    OR (excluded.last_modified = last_modified
-        AND excluded.last_modified_client > last_modified_client)
-`);
-
-	const timestampSeconds = op.timestamp / 1000;
-
-	await stmt
-		.bind(
-			timestampSeconds,
-			op.clientId,
+	// so we reserve the sequence number separately first
+	await db
+		.insert(schema.cards)
+		.values({
+			lastModified: new Date(op.timestamp),
+			lastModifiedClient: op.clientId,
 			seqNo,
-			op.payload.id,
+			id: op.payload.id,
 			userId,
-			seqNo,
-			op.clientId,
-			timestampSeconds,
-		)
-		.run();
+		})
+		.onConflictDoUpdate({
+			target: schema.cards.id,
+			set: {
+				seqNo,
+				lastModifiedClient: op.clientId,
+				lastModified: new Date(op.timestamp),
+			},
+			setWhere: sql`
+		excluded.last_modified > ${schema.cards.lastModified}
+		OR (excluded.last_modified = ${schema.cards.lastModified}
+			AND excluded.last_modified_client > ${schema.cards.lastModifiedClient})
+		`,
+		});
 }
 
 export async function handleOperation(userId: string, op: Operation, db: D1Database) {
 	const seqNo = await reserveSeqNo(userId, db, 1);
+	const drizzleDb = drizzle(db, {
+		schema,
+	});
 
 	switch (op.type) {
 		case 'card':
-			return handleCardOperation(userId, op, db, seqNo);
+			return handleCardOperation(userId, op, drizzleDb, seqNo);
 		default:
 			throw new Error(`Unknown operation type: ${op.type}`);
 	}

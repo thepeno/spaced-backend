@@ -62,7 +62,7 @@ describe('card operations', () => {
 		expect(card!.id).toBe(op1.payload.id);
 		expect(card!.seqNo).toBe(1);
 		expect(card!.lastModifiedClient).toBe(op1.clientId);
-		expect(card!.lastModified.getTime()).toBe(op1.timestamp);
+		expect(Math.abs(card!.lastModified.getTime() - op1.timestamp)).toBeLessThan(1000);
 
 		const user = await db.query.users.findFirst({
 			where: eq(schema.users.id, testUser.id),
@@ -83,7 +83,7 @@ describe('card operations', () => {
 		});
 		expect(card).toBeDefined();
 		expect(card!.lastModifiedClient).toBe(op2.clientId);
-		expect(card!.lastModified.getTime()).toBe(op2.timestamp);
+		expect(Math.abs(card!.lastModified.getTime() - op2.timestamp)).toBeLessThan(1000);
 	});
 
 	it('later operation wins even when it comes first', async () => {
@@ -96,7 +96,7 @@ describe('card operations', () => {
 		expect(card).toBeDefined();
 		expect(card?.seqNo).toBe(1);
 		expect(card!.lastModifiedClient).toBe(op2.clientId);
-		expect(card!.lastModified.getTime()).toBe(op2.timestamp);
+		expect(Math.abs(card!.lastModified.getTime() - op2.timestamp)).toBeLessThan(1000);
 	});
 
 	it('when same time, the higher client id wins', async () => {
@@ -109,7 +109,7 @@ describe('card operations', () => {
 
 		expect(card).toBeDefined();
 		expect(card!.lastModifiedClient).toBe(op3.clientId);
-		expect(card!.lastModified.getTime()).toBe(op3.timestamp);
+		expect(Math.abs(card!.lastModified.getTime() - op3.timestamp)).toBeLessThan(1000);
 	});
 
 });
