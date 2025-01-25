@@ -6,6 +6,7 @@ import * as schema from '@/db/schema';
 import { User } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
+export const SESSION_COOKIE_NAME = 'sid';
 export const COOKIE_EXPIRATION_TIME_MS = 1000 * 60 * 60 * 24 * 30;
 
 // It's a good start for a hobby project
@@ -168,11 +169,7 @@ type InvalidateSessionResult =
 const INVALIDATE_SESSION_NOT_FOUND_ERROR_MSG = 'Session not found';
 
 export async function invalidateSession(db: DB, sessionId: string): Promise<InvalidateSessionResult> {
-	const results = await db
-		.update(schema.sessions)
-		.set({ valid: false })
-		.where(eq(schema.sessions.id, sessionId))
-		.returning();
+	const results = await db.update(schema.sessions).set({ valid: false }).where(eq(schema.sessions.id, sessionId)).returning();
 
 	if (results.length === 0) {
 		return {
@@ -187,5 +184,39 @@ export async function invalidateSession(db: DB, sessionId: string): Promise<Inva
 
 	return {
 		success: true,
+	};
+}
+
+type GetSessionResult =
+	| {
+			success: true;
+			session: schema.Session;
+	  }
+	| {
+			success: false;
+			error: string;
+	  };
+
+const GET_SESSION_NOT_FOUND_ERROR_MSG = 'Session not found';
+
+export async function getSession(db: DB, sessionId: string): Promise<GetSessionResult> {
+	const [session] = await db
+		.update(schema.sessions)
+		.set({
+			lastActiveAt: new Date(),
+		})
+		.where(eq(schema.sessions.id, sessionId))
+		.returning();
+
+	if (!session) {
+		return {
+			success: false,
+			error: GET_SESSION_NOT_FOUND_ERROR_MSG,
+		};
+	}
+
+	return {
+		success: true,
+		session,
 	};
 }
