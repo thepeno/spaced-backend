@@ -79,11 +79,13 @@ export type CardDeleted = typeof cardDeleted.$inferSelect;
 
 export const decks = sqliteTable('decks', {
 	id: text('id').primaryKey(),
+	name: text('name').notNull(),
+	description: text('description').notNull(),
+	deleted: integer('deleted', { mode: 'boolean' }).notNull().default(false),
 	lastModified: integer('last_modified', { mode: 'timestamp' })
 		.notNull()
 		.default(sql`(current_timestamp)`),
 	seqNo: integer('seq_no').notNull(),
-	deleted: integer('deleted', { mode: 'boolean' }).notNull().default(false),
 	userId: text('user_id')
 		.notNull()
 		.references(() => users.id),
@@ -91,6 +93,8 @@ export const decks = sqliteTable('decks', {
 		.notNull()
 		.references(() => clients.id),
 });
+
+export type Deck = typeof decks.$inferSelect;
 
 export const cardDecks = sqliteTable(
 	'card_decks',

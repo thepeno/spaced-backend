@@ -27,9 +27,16 @@ export type CardDeletedOperation = {
 	clientId: string;
 };
 
+export type DeckOperation = {
+	type: 'deck';
+	payload: StripMetadata<schema.Deck>;
+	timestamp: number;
+	clientId: string;
+};
+
 // TODO: the last write wins logic can be abstracted out into something
 // that's more generic and reusable between all LastWriteWins tables
-export type Operation = CardOperation | CardContentOperation | CardDeletedOperation;
+export type Operation = CardOperation | CardContentOperation | CardDeletedOperation | DeckOperation;
 
 /**
  * Reserves the next sequence numbers for the user.
@@ -138,6 +145,36 @@ export async function handleCardDeletedOperation(op: CardDeletedOperation, db: D
 		});
 }
 
+export async function handleDeckOperation(userId: string, op: DeckOperation, db: DB, seqNo: number) {
+	await db
+		.insert(schema.decks)
+		.values({
+			id: op.payload.id,
+			name: op.payload.name,
+			description: op.payload.description,
+			deleted: op.payload.deleted,
+			lastModified: new Date(op.timestamp),
+			lastModifiedClient: op.clientId,
+			seqNo,
+			userId,
+		})
+		.onConflictDoUpdate({
+			target: schema.decks.id,
+			set: {
+				name: op.payload.name,
+				description: op.payload.description,
+				deleted: op.payload.deleted,
+				lastModified: new Date(op.timestamp),
+				lastModifiedClient: op.clientId,
+			},
+			setWhere: sql`
+		excluded.last_modified > ${schema.decks.lastModified}
+		OR (excluded.last_modified = ${schema.decks.lastModified}
+			AND excluded.last_modified_client > ${schema.decks.lastModifiedClient})
+		`,
+		});
+}
+
 export async function handleOperation(userId: string, op: Operation, db: D1Database) {
 	const seqNo = await reserveSeqNo(userId, db, 1);
 	const drizzleDb = drizzle(db, {
@@ -151,6 +188,8 @@ export async function handleOperation(userId: string, op: Operation, db: D1Datab
 			return handleCardContentOperation(op, drizzleDb, seqNo);
 		case 'cardDeleted':
 			return handleCardDeletedOperation(op, drizzleDb, seqNo);
+		case 'deck':
+			return handleDeckOperation(userId, op, drizzleDb, seqNo);
 		default:
 			const _exhaustiveCheck: never = op;
 			throw new Error(`Unknown operation type: ${JSON.stringify(op)}`);

@@ -52,9 +52,11 @@ CREATE TABLE \`clients\` (
 CREATE UNIQUE INDEX \`user_id_idx\` ON \`clients\` (\`user_id\`,\`id\`);--> statement-breakpoint
 CREATE TABLE \`decks\` (
 	\`id\` text PRIMARY KEY NOT NULL,
+	\`name\` text NOT NULL,
+	\`description\` text NOT NULL,
+	\`deleted\` integer DEFAULT false NOT NULL,
 	\`last_modified\` integer DEFAULT (current_timestamp) NOT NULL,
 	\`seq_no\` integer NOT NULL,
-	\`deleted\` integer DEFAULT false NOT NULL,
 	\`user_id\` text NOT NULL,
 	\`last_modified_client\` text NOT NULL,
 	FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON UPDATE no action ON DELETE no action,
