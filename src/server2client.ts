@@ -1,15 +1,10 @@
 import { DB } from '@/db';
 import * as schema from '@/db/schema';
-import {
-	CardContentOperation,
-	CardDeletedOperation,
-	CardOperation,
-	DeckOperation,
-	Operation,
-	ServerToClient,
-	UpdateDeckCardOperation,
-} from '@/client2server';
+import { CardContentOperation, CardDeletedOperation, CardOperation, DeckOperation, Operation, UpdateDeckCardOperation } from '@/operation';
 import { and, gt, ne } from 'drizzle-orm';
+
+/** Represents an operation sent from the server to the client */
+export type ServerToClient<T extends Operation> = T & { seqNo: number };
 
 async function getCardsFromSeqNo(db: DB, requestingClientId: string, seqNo: number): Promise<ServerToClient<CardOperation>[]> {
 	const cards = await db.query.cards.findMany({
@@ -135,7 +130,11 @@ async function getDeckCardFromSeqNo(db: DB, requestingClientId: string, seqNo: n
  * @param seqNo
  * @returns
  */
-export async function getAllOpsFromSeqNoExclClient(db: DB, requestingClientId: string, seqNo: number): Promise<ServerToClient<Operation>[]> {
+export async function getAllOpsFromSeqNoExclClient(
+	db: DB,
+	requestingClientId: string,
+	seqNo: number
+): Promise<ServerToClient<Operation>[]> {
 	const operations = await Promise.all([
 		getCardsFromSeqNo(db, requestingClientId, seqNo),
 		getCardContentFromSeqNo(db, requestingClientId, seqNo),

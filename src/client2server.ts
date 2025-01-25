@@ -1,50 +1,14 @@
 import { DB } from '@/db';
 import * as schema from '@/db/schema';
-import { Card } from '@/db/schema';
+import { CardContentOperation, CardDeletedOperation, CardOperation, DeckOperation, Operation, UpdateDeckCardOperation } from '@/operation';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 
-type StripMetadata<T> = Omit<T, 'seqNo' | 'lastModifiedClient' | 'userId' | 'lastModified'>;
-
-export type CardOperation = {
-	type: 'card';
-	payload: StripMetadata<Card>;
-	timestamp: number;
-};
-
-export type CardContentOperation = {
-	type: 'cardContent';
-	payload: StripMetadata<schema.CardContent>;
-	timestamp: number;
-};
-
-export type CardDeletedOperation = {
-	type: 'cardDeleted';
-	payload: StripMetadata<schema.CardDeleted>;
-	timestamp: number;
-};
-
-export type DeckOperation = {
-	type: 'deck';
-	payload: StripMetadata<schema.Deck>;
-	timestamp: number;
-};
-
-export type UpdateDeckCardOperation = {
-	type: 'updateDeckCard';
-	payload: StripMetadata<schema.CardDeck>;
-	timestamp: number;
-};
-
 // TODO: the last write wins logic can be abstracted out into something
 // that's more generic and reusable between all LastWriteWins tables
-export type Operation = CardOperation | CardContentOperation | CardDeletedOperation | DeckOperation | UpdateDeckCardOperation;
 
 /** Represents an operation sent from the client to the server */
 export type ClientToServer<T extends Operation> = T & { clientId: string; userId: string };
-
-/** Represents an operation sent from the server to the client */
-export type ServerToClient<T extends Operation> = T & { seqNo: number };
 
 /**
  * Reserves the next sequence numbers for the user.

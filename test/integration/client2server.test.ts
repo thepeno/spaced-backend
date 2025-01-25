@@ -1,14 +1,7 @@
+import { ClientToServer, handleClientOperation } from '@/client2server';
 import { DB } from '@/db';
 import * as schema from '@/db/schema';
-import {
-	CardContentOperation,
-	CardDeletedOperation,
-	CardOperation,
-	ClientToServer,
-	DeckOperation,
-	handleClientOperation,
-	UpdateDeckCardOperation,
-} from '@/client2server';
+import { CardContentOperation, CardDeletedOperation, CardOperation, DeckOperation, UpdateDeckCardOperation } from '@/operation';
 import { env } from 'cloudflare:test';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';

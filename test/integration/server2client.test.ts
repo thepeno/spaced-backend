@@ -1,14 +1,8 @@
+import { ClientToServer, handleClientOperation } from '@/client2server';
 import { DB } from '@/db';
 import * as schema from '@/db/schema';
-import {
-	CardContentOperation,
-	CardDeletedOperation,
-	CardOperation,
-	ClientToServer,
-	handleClientOperation,
-	ServerToClient,
-} from '@/client2server';
-import { getAllOpsFromSeqNoExclClient } from '@/server2client';
+import { CardContentOperation, CardDeletedOperation, CardOperation } from '@/operation';
+import { getAllOpsFromSeqNoExclClient, ServerToClient } from '@/server2client';
 import { env } from 'cloudflare:test';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
@@ -171,4 +165,3 @@ describe('server2client', () => {
 		expect(cardDeletedOperation.seqNo).toBe(3);
 	});
 });
-
