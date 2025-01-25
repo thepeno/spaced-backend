@@ -34,9 +34,16 @@ export type DeckOperation = {
 	clientId: string;
 };
 
+export type UpdateDeckCardOperation = {
+	type: 'updateDeckCard';
+	payload: StripMetadata<schema.CardDeck>;
+	timestamp: number;
+	clientId: string;
+};
+
 // TODO: the last write wins logic can be abstracted out into something
 // that's more generic and reusable between all LastWriteWins tables
-export type Operation = CardOperation | CardContentOperation | CardDeletedOperation | DeckOperation;
+export type Operation = CardOperation | CardContentOperation | CardDeletedOperation | DeckOperation | UpdateDeckCardOperation;
 
 /**
  * Reserves the next sequence numbers for the user.
@@ -175,6 +182,32 @@ export async function handleDeckOperation(userId: string, op: DeckOperation, db:
 		});
 }
 
+// Card - Deck relation modelled using a CLSet
+// If the count is even, the card is in the deck
+// The join operation just takes the max of the two counts
+export async function handleUpdateDeckCardOperation(op: UpdateDeckCardOperation, db: DB, seqNo: number) {
+	await db
+		.insert(schema.cardDecks)
+		.values({
+			cardId: op.payload.cardId,
+			deckId: op.payload.deckId,
+			seqNo,
+			clCount: op.payload.clCount,
+			lastModified: new Date(op.timestamp),
+			lastModifiedClient: op.clientId,
+		})
+		.onConflictDoUpdate({
+			target: [schema.cardDecks.cardId, schema.cardDecks.deckId],
+			set: {
+				clCount: op.payload.clCount,
+				lastModified: new Date(op.timestamp),
+				lastModifiedClient: op.clientId,
+			},
+			setWhere: sql`excluded.cl_count > ${schema.cardDecks.clCount}`,
+		});
+}
+
+
 export async function handleOperation(userId: string, op: Operation, db: D1Database) {
 	const seqNo = await reserveSeqNo(userId, db, 1);
 	const drizzleDb = drizzle(db, {
@@ -190,6 +223,8 @@ export async function handleOperation(userId: string, op: Operation, db: D1Datab
 			return handleCardDeletedOperation(op, drizzleDb, seqNo);
 		case 'deck':
 			return handleDeckOperation(userId, op, drizzleDb, seqNo);
+		case 'updateDeckCard':
+			return handleUpdateDeckCardOperation(op, drizzleDb, seqNo);
 		default:
 			const _exhaustiveCheck: never = op;
 			throw new Error(`Unknown operation type: ${JSON.stringify(op)}`);

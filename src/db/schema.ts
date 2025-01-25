@@ -110,13 +110,15 @@ export const cardDecks = sqliteTable(
 			.default(sql`(current_timestamp)`),
 		seqNo: integer('seq_no').notNull(),
 		clCount: integer('cl_count').notNull().default(0),
-		userId: text('user_id')
+		lastModifiedClient: text('last_modified_client')
 			.notNull()
-			.references(() => users.id),
+			.references(() => clients.id),
 	},
-	(table) => ({
-		pk: primaryKey({
+	(table) => [
+		primaryKey({
 			columns: [table.cardId, table.deckId],
 		}),
-	})
+	]
 );
+
+export type CardDeck = typeof cardDecks.$inferSelect;

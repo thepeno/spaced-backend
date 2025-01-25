@@ -1,6 +1,13 @@
 import { DB } from '@/db';
 import * as schema from '@/db/schema';
-import { CardContentOperation, CardDeletedOperation, CardOperation, DeckOperation, handleOperation } from '@/operation';
+import {
+	CardContentOperation,
+	CardDeletedOperation,
+	CardOperation,
+	DeckOperation,
+	handleOperation,
+	UpdateDeckCardOperation,
+} from '@/operation';
 import { env } from 'cloudflare:test';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
@@ -303,42 +310,42 @@ describe('card deleted operations', () => {
 	});
 });
 
+const deckOp: DeckOperation = {
+	type: 'deck',
+	clientId: testClientId,
+	timestamp: now,
+	payload: {
+		id: 'test-deck-1',
+		name: 'test-deck-1',
+		description: 'test-deck-1',
+		deleted: false,
+	},
+};
+const deckOp2: DeckOperation = {
+	type: 'deck',
+	clientId: testClientId,
+	timestamp: now + 100000,
+	payload: {
+		id: 'test-deck-1',
+		name: 'test-deck-2',
+		description: 'test-deck-2',
+		deleted: true,
+	},
+};
+
+const deckOp3: DeckOperation = {
+	type: 'deck',
+	clientId: testClientId2,
+	timestamp: now,
+	payload: {
+		id: 'test-deck-1',
+		name: 'test-deck-3',
+		description: 'test-deck-3',
+		deleted: false,
+	},
+};
+
 describe('deck operations', () => {
-	const deckOp: DeckOperation = {
-		type: 'deck',
-		clientId: testClientId,
-		timestamp: now,
-		payload: {
-			id: 'test-deck-1',
-			name: 'test-deck-1',
-			description: 'test-deck-1',
-			deleted: false,
-		},
-	};
-	const deckOp2: DeckOperation = {
-		type: 'deck',
-		clientId: testClientId,
-		timestamp: now + 100000,
-		payload: {
-			id: 'test-deck-1',
-			name: 'test-deck-2',
-			description: 'test-deck-2',
-			deleted: true,
-		},
-	};
-
-	const deckOp3: DeckOperation = {
-		type: 'deck',
-		clientId: testClientId2,
-		timestamp: now,
-		payload: {
-			id: 'test-deck-1',
-			name: 'test-deck-3',
-			description: 'test-deck-3',
-			deleted: false,
-		},
-	};
-
 	it('should insert a new deck', async () => {
 		await handleOperation(testUser.id, deckOp, env.D1);
 		const deck = await db.query.decks.findFirst({
@@ -384,5 +391,59 @@ describe('deck operations', () => {
 		expect(deck!.deleted).toBe(deckOp3.payload.deleted);
 		expect(deck!.lastModifiedClient).toBe(deckOp3.clientId);
 		expect(Math.abs(deck!.lastModified.getTime() - deckOp3.timestamp)).toBeLessThan(1000);
+	});
+});
+
+describe('update deck card operations', () => {
+	const updateDeckCardOp: UpdateDeckCardOperation = {
+		type: 'updateDeckCard',
+		clientId: testClientId,
+		timestamp: now,
+		payload: {
+			cardId: 'test-card-1',
+			deckId: 'test-deck-1',
+			clCount: 1,
+		},
+	};
+
+	const updateDeckCardOp2: UpdateDeckCardOperation = {
+		type: 'updateDeckCard',
+		clientId: testClientId,
+		timestamp: now - 10000,
+		payload: {
+			cardId: 'test-card-1',
+			deckId: 'test-deck-1',
+			clCount: 2,
+		},
+	};
+
+	it('should update the deck card', async () => {
+		await handleOperation(testUser.id, cardOp1, env.D1);
+		await handleOperation(testUser.id, deckOp, env.D1);
+
+		await handleOperation(testUser.id, updateDeckCardOp, env.D1);
+
+		const cardDeck = await db.query.cardDecks.findFirst({
+			where: eq(schema.cardDecks.cardId, updateDeckCardOp.payload.cardId),
+		});
+		expect(cardDeck).toBeDefined();
+		expect(cardDeck!.clCount).toBe(updateDeckCardOp.payload.clCount);
+		expect(cardDeck!.lastModifiedClient).toBe(updateDeckCardOp.clientId);
+		expect(Math.abs(cardDeck!.lastModified.getTime() - updateDeckCardOp.timestamp)).toBeLessThan(1000);
+	});
+
+	it('higher clcount wins, even if it comes first', async () => {
+		await handleOperation(testUser.id, cardOp1, env.D1);
+		await handleOperation(testUser.id, deckOp, env.D1);
+		await handleOperation(testUser.id, updateDeckCardOp2, env.D1);
+		await handleOperation(testUser.id, updateDeckCardOp, env.D1);
+
+		const cardDeck = await db.query.cardDecks.findFirst({
+			where: eq(schema.cardDecks.cardId, updateDeckCardOp.payload.cardId),
+		});
+		expect(cardDeck).toBeDefined();
+		expect(cardDeck!.clCount).toBe(updateDeckCardOp2.payload.clCount);
+		expect(cardDeck!.lastModifiedClient).toBe(updateDeckCardOp2.clientId);
+		expect(Math.abs(cardDeck!.lastModified.getTime() - updateDeckCardOp2.timestamp)).toBeLessThan(1000);
 	});
 });
