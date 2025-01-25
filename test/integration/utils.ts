@@ -2,12 +2,14 @@ import * as schema from '@/db/schema';
 import { env } from 'cloudflare:test';
 import { drizzle } from 'drizzle-orm/d1';
 
+export const testUserPassword = 'test-user-password';
+export const testUserEmail = 'test@email.com';
+
 export const testUser = {
 	id: 'test',
-	username: 'testuser',
-	email: 'test@email.com',
-	passwordHash: 'password',
-};
+	email: testUserEmail,
+	passwordHash: 'Xj+SO0CHAnpDOZyhr2+KAmz1n60hDmogm+9UkmLi4p0K78+RyxWVbqT0u/TsIOBP',
+} satisfies schema.NewUser;
 
 export const testClientId = 'test-1';
 export const testClientId2 = 'test-2';

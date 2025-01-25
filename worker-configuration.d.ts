@@ -2,6 +2,8 @@
 
 interface Env {
 	D1: D1Database;
+	COOKIE_SECRET: string;
+	WORKER_ENV: 'production' | 'local';
 }
 
 declare module 'cloudflare:test' {

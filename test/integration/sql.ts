@@ -64,13 +64,26 @@ CREATE TABLE \`decks\` (
 	FOREIGN KEY (\`last_modified_client\`) REFERENCES \`clients\`(\`id\`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE TABLE \`sessions\` (
+	\`id\` text PRIMARY KEY NOT NULL,
+	\`user_id\` text NOT NULL,
+	\`valid\` integer DEFAULT true NOT NULL,
+	\`created_at\` integer DEFAULT (current_timestamp) NOT NULL,
+	\`expires_at\` integer NOT NULL,
+	\`last_active_at\` integer DEFAULT (current_timestamp) NOT NULL,
+	FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
 CREATE TABLE \`users\` (
 	\`id\` text PRIMARY KEY NOT NULL,
 	\`last_modified\` integer DEFAULT (current_timestamp) NOT NULL,
-	\`username\` text NOT NULL,
 	\`email\` text NOT NULL,
+	\`is_active\` integer DEFAULT true NOT NULL,
 	\`password_hash\` text NOT NULL,
-	\`next_seq_no\` integer DEFAULT 1 NOT NULL
+	\`next_seq_no\` integer DEFAULT 1 NOT NULL,
+	\`failed_login_attempts\` integer DEFAULT 0 NOT NULL,
+	\`password_reset_token\` text,
+	\`password_reset_token_expires_at\` integer
 );
 ;
 `;

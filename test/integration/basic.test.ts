@@ -12,12 +12,10 @@ it('should insert a new user', async () => {
 		.insert(schema.users)
 		.values({
 			id: 'test',
-			username: 'testuser',
 			email: 'test@email.com',
 			passwordHash: 'password',
 		})
 		.returning();
 
 	expect(user.id).toBe('test');
-	expect(user.username).toBe('testuser');
 });

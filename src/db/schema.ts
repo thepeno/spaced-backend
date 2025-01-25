@@ -6,14 +6,38 @@ export const users = sqliteTable('users', {
 	lastModified: integer('last_modified', { mode: 'timestamp' })
 		.notNull()
 		.default(sql`(current_timestamp)`),
-	username: text('username').notNull(),
 	email: text('email').notNull(),
+	// TODO: implement verification for registering email
+	isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
 	passwordHash: text('password_hash').notNull(),
 	nextSeqNo: integer('next_seq_no').notNull().default(1),
+	failedLoginAttempts: integer('failed_login_attempts').notNull().default(0),
+	passwordResetToken: text('password_reset_token'),
+	passwordResetTokenExpiresAt: integer('password_reset_token_expires_at', {
+		mode: 'timestamp',
+	}),
 });
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+
+export const sessions = sqliteTable('sessions', {
+	id: text('id').primaryKey(),
+	userId: text('user_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	valid: integer('valid', { mode: 'boolean' }).notNull().default(true),
+	createdAt: integer('created_at', { mode: 'timestamp' })
+		.notNull()
+		.default(sql`(current_timestamp)`),
+	expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
+	lastActiveAt: integer('last_active_at', { mode: 'timestamp' })
+		.notNull()
+		.default(sql`(current_timestamp)`),
+});
+
+export type Session = typeof sessions.$inferSelect;
+export type NewSession = typeof sessions.$inferInsert;
 
 export const clients = sqliteTable(
 	'clients',
