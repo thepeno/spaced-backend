@@ -1,4 +1,3 @@
-import { DB } from '@/db';
 import * as schema from '@/db/schema';
 import { env, SELF } from 'cloudflare:test';
 import { drizzle } from 'drizzle-orm/d1';

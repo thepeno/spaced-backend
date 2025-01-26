@@ -1,7 +1,6 @@
 // test/index.spec.ts
 import { SESSION_COOKIE_NAME, USER_ALREADY_EXISTS_ERROR_MSG } from '@/auth';
 import * as schema from '@/db/schema';
-import { CardOperation } from '@/operation';
 import { env, SELF } from 'cloudflare:test';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
@@ -16,16 +15,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 beforeEach(async () => {
 	await createTestUser();
 });
-
-const now = Date.now();
-
-const cardOp1: CardOperation = {
-	type: 'card',
-	timestamp: now,
-	payload: {
-		id: 'test-card-1',
-	},
-};
 
 const db = drizzle(env.D1, {
 	schema,
