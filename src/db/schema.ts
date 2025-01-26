@@ -1,5 +1,8 @@
 import { sql } from 'drizzle-orm';
-import { integer, primaryKey, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
+import { integer, primaryKey, real, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
+
+export const states = ['New', 'Learning', 'Review', 'Relearning'] as const;
+export type State = (typeof states)[number];
 
 export const users = sqliteTable('users', {
 	id: text('id').primaryKey(),
@@ -63,6 +66,19 @@ export const cards = sqliteTable('cards', {
 	lastModifiedClient: text('last_modified_client')
 		.notNull()
 		.references(() => clients.id),
+
+	// Variables for cards
+	due: integer('due', { mode: 'timestamp' })
+		.notNull()
+		.default(sql`(current_timestamp)`),
+	stability: real('stability').notNull(),
+	difficulty: real('difficulty').notNull(),
+	elapsed_days: integer('elapsed_days').notNull(),
+	scheduled_days: integer('scheduled_days').notNull(),
+	reps: integer('reps').notNull(),
+	lapses: integer('lapses').notNull(),
+	state: text('state', { enum: states }).notNull(),
+	last_review: integer('last_review', { mode: 'timestamp' }),
 });
 
 export type Card = typeof cards.$inferSelect;

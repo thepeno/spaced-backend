@@ -40,6 +40,15 @@ CREATE TABLE \`cards\` (
 	\`seq_no\` integer NOT NULL,
 	\`user_id\` text NOT NULL,
 	\`last_modified_client\` text NOT NULL,
+	\`due\` integer DEFAULT (current_timestamp) NOT NULL,
+	\`stability\` real NOT NULL,
+	\`difficulty\` real NOT NULL,
+	\`elapsed_days\` integer NOT NULL,
+	\`scheduled_days\` integer NOT NULL,
+	\`reps\` integer NOT NULL,
+	\`lapses\` integer NOT NULL,
+	\`state\` text NOT NULL,
+	\`last_review\` integer,
 	FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (\`last_modified_client\`) REFERENCES \`clients\`(\`id\`) ON UPDATE no action ON DELETE no action
 );
