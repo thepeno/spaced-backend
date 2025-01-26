@@ -5,12 +5,13 @@ import { CardOperation } from '@/operation';
 import { env, SELF } from 'cloudflare:test';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
-import { createTestUser, loginTestUser, testUserEmail, testUserPassword } from 'test/integration/utils';
+import {
+	createTestUser,
+	loginTestUser,
+	testUserEmail,
+	testUserPassword,
+} from 'test/integration/utils';
 import { beforeEach, describe, expect, it } from 'vitest';
-
-// For now, you'll need to do something like this to get a correctly-typed
-// `Request` to pass to `worker.fetch()`.
-const IncomingRequest = Request<unknown, IncomingRequestCfProperties>;
 
 beforeEach(async () => {
 	await createTestUser();
@@ -35,29 +36,6 @@ describe('basic', () => {
 		const response = await SELF.fetch('http://localhost:3000/');
 		expect(await response.text()).toMatchInlineSnapshot(`"OK"`);
 	});
-
-	// describe('GET /sync', () => {
-	// 	it('returns an empty array if no operations are present', async () => {
-	// 		const response = await SELF.fetch('https://example.com/sync?seqNo=0');
-	// 		expect(await response.json()).toMatchObject({
-	// 			ops: [],
-	// 		});
-	// 	});
-
-	// 	it.todo('returns an op if different client has made an op', async () => {
-	// 		const response = await SELF.fetch('https://example.com/sync?seqNo=0');
-	// 		expect(await response.json()).toMatchObject({
-	// 			ops: [],
-	// 		});
-	// 	});
-
-	// 	it.todo('returns an empty array if same client request ops')
-	// });
-
-	// it('can sync a single card', async () => {
-	// 	const response = await SELF.fetch('https://example.com');
-	// 	expect(await response.text()).toMatchInlineSnapshot(`"OK"`);
-	// });
 });
 
 describe('auth', () => {

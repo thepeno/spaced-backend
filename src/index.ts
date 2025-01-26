@@ -10,6 +10,7 @@ import {
 import { handleClientOperation, opToClient2ServerOp } from '@/client2server';
 import { createClientId } from '@/clientid';
 import * as schema from '@/db/schema';
+import { clientIdMiddleware } from '@/middleware/clientid';
 import { sessionMiddleware } from '@/middleware/session';
 import { operationSchema } from '@/operation';
 import { getAllOpsFromSeqNoExclClient } from '@/server2client';
@@ -20,9 +21,6 @@ import { deleteCookie, getSignedCookie, setSignedCookie } from 'hono/cookie';
 import { logger } from 'hono/logger';
 import { CookieOptions } from 'hono/utils/cookie';
 import { z } from 'zod';
-
-const userid = 'test-user';
-const clientid = 'test-client';
 
 const app = new Hono<{ Bindings: Env }>();
 app.use(logger());
@@ -77,7 +75,13 @@ app.post(
 		}
 
 		const cookieOptions = c.env.WORKER_ENV === 'local' ? devCookieOptions : prodCookieOptions;
-		setSignedCookie(c, SESSION_COOKIE_NAME, createSessionResult.session, c.env.COOKIE_SECRET, cookieOptions);
+		setSignedCookie(
+			c,
+			SESSION_COOKIE_NAME,
+			createSessionResult.session,
+			c.env.COOKIE_SECRET,
+			cookieOptions
+		);
 
 		return c.json({
 			success: true,
@@ -128,7 +132,13 @@ app.post(
 		}
 
 		const cookieOptions = c.env.WORKER_ENV === 'local' ? devCookieOptions : prodCookieOptions;
-		setSignedCookie(c, SESSION_COOKIE_NAME, createSessionResult.session, c.env.COOKIE_SECRET, cookieOptions);
+		setSignedCookie(
+			c,
+			SESSION_COOKIE_NAME,
+			createSessionResult.session,
+			c.env.COOKIE_SECRET,
+			cookieOptions
+		);
 
 		return c.json({
 			success: true,
@@ -186,21 +196,31 @@ app.post('/clientId', sessionMiddleware, async (c) => {
 // and only return when the requests are all done.
 // TODO: error handling with exponential backoff for each client request
 // TODO: non-blocking version (must buffer the requests for each client somehow)
-app.post('/sync', zValidator('json', z.array(operationSchema)), async (c) => {
-	const ops = c.req.valid('json');
+app.post(
+	'/sync',
+	sessionMiddleware,
+	clientIdMiddleware,
+	zValidator('json', z.array(operationSchema)),
+	async (c) => {
+		const userId = c.get('userId');
+		const clientId = c.get('clientId');
+		const ops = c.req.valid('json');
 
-	const clientOps = ops.map((op) => opToClient2ServerOp(op, userid, clientid));
-	for (const op of clientOps) {
-		await handleClientOperation(op, c.env.D1);
+		const clientOps = ops.map((op) => opToClient2ServerOp(op, userId, clientId));
+		for (const op of clientOps) {
+			await handleClientOperation(op, c.env.D1);
+		}
+
+		return c.json({
+			success: true,
+		});
 	}
-
-	return c.json({
-		success: true,
-	});
-});
+);
 
 app.get(
 	'/sync',
+	sessionMiddleware,
+	clientIdMiddleware,
 	zValidator(
 		'query',
 		z.object({
@@ -209,11 +229,12 @@ app.get(
 	),
 	async (c) => {
 		const { seqNo } = c.req.valid('query');
+		const clientId = c.get('clientId');
 
 		const db = drizzle(c.env.D1, {
 			schema,
 		});
-		const clientOps = await getAllOpsFromSeqNoExclClient(db, clientid, seqNo);
+		const clientOps = await getAllOpsFromSeqNoExclClient(db, clientId, seqNo);
 
 		return c.json({
 			ops: clientOps,

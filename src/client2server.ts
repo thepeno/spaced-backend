@@ -199,3 +199,14 @@ export async function handleClientOperation(op: ClientToServer<Operation>, db: D
 			throw new Error(`Unknown operation type: ${JSON.stringify(op)}`);
 	}
 }
+
+/**
+ * Converts an operation to a client2server operation.
+ */
+export function opToClient2ServerOp(op: Operation, userId: string, clientId: string): ClientToServer<Operation> {
+	return {
+		...op,
+		userId,
+		clientId,
+	};
+}
