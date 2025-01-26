@@ -4,12 +4,7 @@ import * as schema from '@/db/schema';
 import { env, SELF } from 'cloudflare:test';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
-import {
-	createTestUsers,
-	loginTestUser,
-	testUserEmail,
-	testUserPassword,
-} from 'test/integration/utils';
+import { createTestUsers, loginTestUser, testUserCredentials } from 'test/integration/utils';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 beforeEach(async () => {
@@ -50,7 +45,7 @@ describe('auth', () => {
 				headers: {
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify({ email: testUserEmail, password: testUserPassword }),
+				body: JSON.stringify(testUserCredentials),
 			});
 
 			expect(response.status).toBe(200);
@@ -86,7 +81,7 @@ describe('auth', () => {
 				headers: {
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify({ email: testUserEmail, password: testUserPassword }),
+				body: JSON.stringify(testUserCredentials),
 			});
 
 			expect(response.status).toBe(200);
@@ -108,7 +103,7 @@ describe('auth', () => {
 				headers: {
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify({ email: testUserEmail, password: 'wrong-password' }),
+				body: JSON.stringify({ email: testUserCredentials.email, password: 'wrong-password' }),
 			});
 
 			expect(response.status).toBe(401);
@@ -125,7 +120,7 @@ describe('auth', () => {
 				headers: {
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify({ email: testUserEmail, password: testUserPassword }),
+				body: JSON.stringify(testUserCredentials),
 			});
 
 			const sid = loginResponse.headers.get('Set-Cookie')?.split(';')[0].split('=')[1];
@@ -186,7 +181,7 @@ describe('auth', () => {
 			});
 
 			const user = await db.query.users.findFirst({
-				where: eq(schema.users.email, testUserEmail),
+				where: eq(schema.users.email, testUserCredentials.email),
 			});
 			expect(user).toBeDefined();
 			if (!user) {

@@ -1,6 +1,5 @@
 import { TOO_MANY_OPS_ERROR_MSG, ValidateOpCountResult } from '@/client2server';
 import { Operation } from '@/operation';
-import { ServerToClient } from '@/server2client';
 import { SELF } from 'cloudflare:test';
 import {
 	createTestUsers,
@@ -9,6 +8,7 @@ import {
 	testClientId,
 	testClientId2,
 } from 'test/integration/utils';
+import { type SyncResponseGET, type SyncResponsePOST } from 'test/sync.types';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 let cookie: string;
@@ -64,14 +64,6 @@ describe('clientId', () => {
 		expect(clientId.clientId).toHaveLength(16);
 	});
 });
-
-type SyncResponsePOST = {
-	success: boolean;
-};
-
-type SyncResponseGET = {
-	ops: ServerToClient<Operation>[];
-};
 
 describe('sync', () => {
 	it('returns an empty array if no operations are present', async () => {

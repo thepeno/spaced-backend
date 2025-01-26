@@ -1,9 +1,21 @@
+import { handleClientOperation } from '@/client2server';
 import * as schema from '@/db/schema';
 import { env, SELF } from 'cloudflare:test';
 import { drizzle } from 'drizzle-orm/d1';
 
-export const testUserPassword = 'test-user-password';
-export const testUserEmail = 'test@email.com';
+const testUserPassword = 'test-user-password';
+const testUserEmail = 'test@email.com';
+const testUser2Email = 'test2@email.com';
+
+export const testUserCredentials = {
+	email: testUserEmail,
+	password: testUserPassword,
+} as const;
+
+export const testUser2Credentials = {
+	email: testUser2Email,
+	password: testUserPassword,
+} as const;
 
 export const testUser = {
 	id: 'test',
@@ -13,22 +25,20 @@ export const testUser = {
 
 export const testUser2 = {
 	id: 'test2',
-	email: 'test2@email.com',
+	email: testUser2Email,
 	passwordHash: 'Xj+SO0CHAnpDOZyhr2+KAmz1n60hDmogm+9UkmLi4p0K78+RyxWVbqT0u/TsIOBP',
 } satisfies schema.NewUser;
 
 export const testClientId = 'test-1';
 export const testClientId2 = 'test-2';
+export const testUser2ClientId = 'test-2-1';
 
 export async function createTestUsers(): Promise<schema.User> {
 	const db = drizzle(env.D1, {
 		schema,
 	});
 
-	const [user] = await db
-		.insert(schema.users)
-		.values([testUser, testUser2])
-		.returning();
+	const [user, user2] = await db.insert(schema.users).values([testUser, testUser2]).returning();
 
 	if (!user) {
 		throw new Error('Failed to create user');
@@ -43,12 +53,21 @@ export async function createTestUsers(): Promise<schema.User> {
 			id: testClientId2,
 			userId: user.id,
 		},
+		{
+			id: testUser2ClientId,
+			userId: user2.id,
+		},
 	]);
 
 	return user;
 }
 
-export async function loginTestUser(): Promise<{
+export async function loginTestUser(
+	user: { email: string; password: string } = {
+		email: testUserEmail,
+		password: testUserPassword,
+	}
+): Promise<{
 	cookie: string;
 }> {
 	const response = await SELF.fetch('http://localhost:3000/login', {
@@ -57,8 +76,8 @@ export async function loginTestUser(): Promise<{
 			'Content-Type': 'application/json',
 		},
 		body: JSON.stringify({
-			email: testUserEmail,
-			password: testUserPassword,
+			email: user.email,
+			password: user.password,
 		}),
 	});
 
@@ -85,3 +104,33 @@ export const DEFAULT_CARD_VARS = {
 	state: 'New',
 	last_review: null,
 } as const;
+
+export async function createTestCardsTestUser1(): Promise<void> {
+	await handleClientOperation(
+		{
+			clientId: testClientId,
+			userId: testUser.id,
+			type: 'card',
+			timestamp: now,
+			payload: {
+				id: 'test-card-1',
+				...DEFAULT_CARD_VARS,
+			},
+		},
+		env.D1
+	);
+
+	await handleClientOperation(
+		{
+			clientId: testClientId,
+			userId: testUser.id,
+			type: 'card',
+			timestamp: now,
+			payload: {
+				id: 'test-card-2',
+				...DEFAULT_CARD_VARS,
+			},
+		},
+		env.D1
+	);
+}
