@@ -60,6 +60,16 @@ export async function handleCardOperation(
 			seqNo,
 			id: op.payload.id,
 			userId: op.userId,
+			// card variables
+			due: op.payload.due,
+			stability: op.payload.stability,
+			difficulty: op.payload.difficulty,
+			elapsed_days: op.payload.elapsed_days,
+			scheduled_days: op.payload.scheduled_days,
+			reps: op.payload.reps,
+			lapses: op.payload.lapses,
+			state: op.payload.state,
+			last_review: op.payload.last_review,
 		})
 		.onConflictDoUpdate({
 			target: schema.cards.id,
@@ -67,6 +77,16 @@ export async function handleCardOperation(
 				seqNo,
 				lastModifiedClient: op.clientId,
 				lastModified: new Date(op.timestamp),
+				// card variables
+				due: op.payload.due,
+				stability: op.payload.stability,
+				difficulty: op.payload.difficulty,
+				elapsed_days: op.payload.elapsed_days,
+				scheduled_days: op.payload.scheduled_days,
+				reps: op.payload.reps,
+				lapses: op.payload.lapses,
+				state: op.payload.state,
+				last_review: op.payload.last_review,
 			},
 			setWhere: sql`
 		excluded.last_modified > ${schema.cards.lastModified}

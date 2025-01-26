@@ -1,18 +1,42 @@
 import { DB } from '@/db';
 import * as schema from '@/db/schema';
-import { CardContentOperation, CardDeletedOperation, CardOperation, DeckOperation, Operation, UpdateDeckCardOperation } from '@/operation';
+import {
+	CardContentOperation,
+	CardDeletedOperation,
+	CardOperation,
+	DeckOperation,
+	Operation,
+	UpdateDeckCardOperation,
+} from '@/operation';
 import { and, gt, ne } from 'drizzle-orm';
 
 /** Represents an operation sent from the server to the client */
 export type ServerToClient<T extends Operation> = T & { seqNo: number };
 
-async function getCardsFromSeqNo(db: DB, requestingClientId: string, seqNo: number): Promise<ServerToClient<CardOperation>[]> {
+async function getCardsFromSeqNo(
+	db: DB,
+	requestingClientId: string,
+	seqNo: number
+): Promise<ServerToClient<CardOperation>[]> {
 	const cards = await db.query.cards.findMany({
-		where: and(gt(schema.cards.seqNo, seqNo), ne(schema.cards.lastModifiedClient, requestingClientId)),
+		where: and(
+			gt(schema.cards.seqNo, seqNo),
+			ne(schema.cards.lastModifiedClient, requestingClientId)
+		),
 		columns: {
 			seqNo: true,
 			lastModified: true,
 			id: true,
+			// card variables
+			due: true,
+			stability: true,
+			difficulty: true,
+			elapsed_days: true,
+			scheduled_days: true,
+			reps: true,
+			lapses: true,
+			state: true,
+			last_review: true,
 		},
 	});
 
@@ -22,13 +46,30 @@ async function getCardsFromSeqNo(db: DB, requestingClientId: string, seqNo: numb
 		timestamp: card.lastModified.getTime(),
 		payload: {
 			id: card.id,
+			// card variables
+			due: card.due,
+			stability: card.stability,
+			difficulty: card.difficulty,
+			elapsed_days: card.elapsed_days,
+			scheduled_days: card.scheduled_days,
+			reps: card.reps,
+			lapses: card.lapses,
+			state: card.state,
+			last_review: card.last_review,
 		},
 	}));
 }
 
-async function getCardContentFromSeqNo(db: DB, requestingClientId: string, seqNo: number): Promise<ServerToClient<CardContentOperation>[]> {
+async function getCardContentFromSeqNo(
+	db: DB,
+	requestingClientId: string,
+	seqNo: number
+): Promise<ServerToClient<CardContentOperation>[]> {
 	const cardContents = await db.query.cardContents.findMany({
-		where: and(gt(schema.cardContents.seqNo, seqNo), ne(schema.cardContents.lastModifiedClient, requestingClientId)),
+		where: and(
+			gt(schema.cardContents.seqNo, seqNo),
+			ne(schema.cardContents.lastModifiedClient, requestingClientId)
+		),
 		columns: {
 			seqNo: true,
 			lastModified: true,
@@ -50,9 +91,16 @@ async function getCardContentFromSeqNo(db: DB, requestingClientId: string, seqNo
 	}));
 }
 
-async function getCardDeletedFromSeqNo(db: DB, requestingClientId: string, seqNo: number): Promise<ServerToClient<CardDeletedOperation>[]> {
+async function getCardDeletedFromSeqNo(
+	db: DB,
+	requestingClientId: string,
+	seqNo: number
+): Promise<ServerToClient<CardDeletedOperation>[]> {
 	const cardDeleted = await db.query.cardDeleted.findMany({
-		where: and(gt(schema.cardDeleted.seqNo, seqNo), ne(schema.cardDeleted.lastModifiedClient, requestingClientId)),
+		where: and(
+			gt(schema.cardDeleted.seqNo, seqNo),
+			ne(schema.cardDeleted.lastModifiedClient, requestingClientId)
+		),
 		columns: {
 			seqNo: true,
 			lastModified: true,
@@ -72,9 +120,16 @@ async function getCardDeletedFromSeqNo(db: DB, requestingClientId: string, seqNo
 	}));
 }
 
-async function getDeckFromSeqNo(db: DB, requestingClientId: string, seqNo: number): Promise<ServerToClient<DeckOperation>[]> {
+async function getDeckFromSeqNo(
+	db: DB,
+	requestingClientId: string,
+	seqNo: number
+): Promise<ServerToClient<DeckOperation>[]> {
 	const decks = await db.query.decks.findMany({
-		where: and(gt(schema.decks.seqNo, seqNo), ne(schema.decks.lastModifiedClient, requestingClientId)),
+		where: and(
+			gt(schema.decks.seqNo, seqNo),
+			ne(schema.decks.lastModifiedClient, requestingClientId)
+		),
 		columns: {
 			seqNo: true,
 			lastModified: true,
@@ -98,9 +153,16 @@ async function getDeckFromSeqNo(db: DB, requestingClientId: string, seqNo: numbe
 	}));
 }
 
-async function getDeckCardFromSeqNo(db: DB, requestingClientId: string, seqNo: number): Promise<ServerToClient<UpdateDeckCardOperation>[]> {
+async function getDeckCardFromSeqNo(
+	db: DB,
+	requestingClientId: string,
+	seqNo: number
+): Promise<ServerToClient<UpdateDeckCardOperation>[]> {
 	const deckCards = await db.query.cardDecks.findMany({
-		where: and(gt(schema.cardDecks.seqNo, seqNo), ne(schema.cardDecks.lastModifiedClient, requestingClientId)),
+		where: and(
+			gt(schema.cardDecks.seqNo, seqNo),
+			ne(schema.cardDecks.lastModifiedClient, requestingClientId)
+		),
 		columns: {
 			seqNo: true,
 			lastModified: true,

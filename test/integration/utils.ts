@@ -67,3 +67,17 @@ export async function loginTestUser(): Promise<{
 		cookie,
 	};
 }
+
+const now = 100000;
+
+export const DEFAULT_CARD_VARS = {
+	due: new Date(now),
+	stability: 0.5,
+	difficulty: 0.5,
+	elapsed_days: 0,
+	scheduled_days: 0,
+	reps: 0,
+	lapses: 0,
+	state: 'New',
+	last_review: null,
+} as const;

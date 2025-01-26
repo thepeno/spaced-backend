@@ -2,7 +2,7 @@ import * as schema from '@/db/schema';
 import { Card } from '@/db/schema';
 import { z } from 'zod';
 
-type StripMetadata<T> = Omit<T, 'seqNo' | 'lastModifiedClient' | 'userId' | 'lastModified'>;
+export type StripMetadata<T> = Omit<T, 'seqNo' | 'lastModifiedClient' | 'userId' | 'lastModified'>;
 
 export type CardOperation = {
 	type: 'card';
@@ -14,6 +14,16 @@ export const cardOperationSchema = z.object({
 	type: z.literal('card'),
 	payload: z.object({
 		id: z.string(),
+		// card variables
+		due: z.coerce.date(),
+		stability: z.number(),
+		difficulty: z.number(),
+		elapsed_days: z.number(),
+		scheduled_days: z.number(),
+		reps: z.number(),
+		lapses: z.number(),
+		state: z.enum(schema.states),
+		last_review: z.coerce.date().nullable(),
 	}),
 	timestamp: z.number(),
 }) satisfies z.ZodType<CardOperation>;
@@ -82,6 +92,17 @@ export const updateDeckCardOperationSchema = z.object({
 	timestamp: z.number(),
 }) satisfies z.ZodType<UpdateDeckCardOperation>;
 
-export type Operation = CardOperation | CardContentOperation | CardDeletedOperation | DeckOperation | UpdateDeckCardOperation;
+export type Operation =
+	| CardOperation
+	| CardContentOperation
+	| CardDeletedOperation
+	| DeckOperation
+	| UpdateDeckCardOperation;
 
-export const operationSchema = z.union([cardOperationSchema, cardContentOperationSchema, cardDeletedOperationSchema, deckOperationSchema, updateDeckCardOperationSchema]);
+export const operationSchema = z.union([
+	cardOperationSchema,
+	cardContentOperationSchema,
+	cardDeletedOperationSchema,
+	deckOperationSchema,
+	updateDeckCardOperationSchema,
+]);

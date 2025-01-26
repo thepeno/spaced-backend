@@ -6,7 +6,13 @@ import { getAllOpsFromSeqNoExclClient, ServerToClient } from '@/server2client';
 import { env } from 'cloudflare:test';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
-import { createTestUser, testClientId, testClientId2, testUser } from 'test/integration/utils';
+import {
+	createTestUser,
+	DEFAULT_CARD_VARS,
+	testClientId,
+	testClientId2,
+	testUser,
+} from 'test/integration/utils';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 let db: DB;
@@ -26,6 +32,7 @@ const cardOp1: ClientToServer<CardOperation> = {
 	timestamp: now,
 	payload: {
 		id: 'test-card-1',
+		...DEFAULT_CARD_VARS,
 	},
 };
 

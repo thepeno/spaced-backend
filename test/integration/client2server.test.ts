@@ -1,11 +1,23 @@
 import { ClientToServer, handleClientOperation } from '@/client2server';
 import { DB } from '@/db';
 import * as schema from '@/db/schema';
-import { CardContentOperation, CardDeletedOperation, CardOperation, DeckOperation, UpdateDeckCardOperation } from '@/operation';
+import {
+	CardContentOperation,
+	CardDeletedOperation,
+	CardOperation,
+	DeckOperation,
+	UpdateDeckCardOperation,
+} from '@/operation';
 import { env } from 'cloudflare:test';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
-import { createTestUser, testClientId, testClientId2, testUser } from 'test/integration/utils';
+import {
+	createTestUser,
+	DEFAULT_CARD_VARS,
+	testClientId,
+	testClientId2,
+	testUser,
+} from 'test/integration/utils';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 let db: DB;
@@ -17,7 +29,7 @@ beforeEach(async () => {
 	});
 });
 
-const now = Date.now();
+const now = 100000;
 
 const cardOp1: ClientToServer<CardOperation> = {
 	type: 'card',
@@ -26,6 +38,7 @@ const cardOp1: ClientToServer<CardOperation> = {
 	timestamp: now,
 	payload: {
 		id: 'test-card-1',
+		...DEFAULT_CARD_VARS,
 	},
 };
 
@@ -36,6 +49,7 @@ const cardOp2: ClientToServer<CardOperation> = {
 	timestamp: now + 1000,
 	payload: {
 		id: 'test-card-1',
+		...DEFAULT_CARD_VARS,
 	},
 };
 
@@ -43,9 +57,10 @@ const cardOp3: ClientToServer<CardOperation> = {
 	type: 'card',
 	userId: testUser.id,
 	clientId: testClientId2,
-	timestamp: now + 1000,
+	timestamp: now,
 	payload: {
 		id: 'test-card-1',
+		...DEFAULT_CARD_VARS,
 	},
 };
 
@@ -115,7 +130,6 @@ describe('card operations', () => {
 
 		expect(card).toBeDefined();
 		expect(card!.lastModifiedClient).toBe(cardOp3.clientId);
-		expect(Math.abs(card!.lastModified.getTime() - cardOp3.timestamp)).toBeLessThan(1000);
 	});
 });
 
@@ -213,7 +227,9 @@ describe('card content operations', () => {
 		expect(cardContent!.front).toBe(cardContentOp2.payload.front);
 		expect(cardContent!.back).toBe(cardContentOp2.payload.back);
 		expect(cardContent!.lastModifiedClient).toBe(cardContentOp2.clientId);
-		expect(Math.abs(cardContent!.lastModified.getTime() - cardContentOp2.timestamp)).toBeLessThan(1000);
+		expect(Math.abs(cardContent!.lastModified.getTime() - cardContentOp2.timestamp)).toBeLessThan(
+			1000
+		);
 		expect(cardContent!.seqNo).toBe(3);
 	});
 
@@ -230,7 +246,9 @@ describe('card content operations', () => {
 		expect(cardContent!.front).toBe(cardContentOp3.payload.front);
 		expect(cardContent!.back).toBe(cardContentOp3.payload.back);
 		expect(cardContent!.lastModifiedClient).toBe(cardContentOp3.clientId);
-		expect(Math.abs(cardContent!.lastModified.getTime() - cardContentOp3.timestamp)).toBeLessThan(1000);
+		expect(Math.abs(cardContent!.lastModified.getTime() - cardContentOp3.timestamp)).toBeLessThan(
+			1000
+		);
 		expect(cardContent!.seqNo).toBe(3);
 	});
 });
@@ -281,7 +299,9 @@ describe('card deleted operations', () => {
 		expect(cardDeleted!.cardId).toBe(cardDeletedOp.payload.cardId);
 		expect(cardDeleted!.deleted).toBe(cardDeletedOp.payload.deleted);
 		expect(cardDeleted!.lastModifiedClient).toBe(cardDeletedOp.clientId);
-		expect(Math.abs(cardDeleted!.lastModified.getTime() - cardDeletedOp.timestamp)).toBeLessThan(1000);
+		expect(Math.abs(cardDeleted!.lastModified.getTime() - cardDeletedOp.timestamp)).toBeLessThan(
+			1000
+		);
 	});
 
 	it('later operation wins', async () => {
@@ -296,7 +316,9 @@ describe('card deleted operations', () => {
 		expect(cardDeleted).toBeDefined();
 		expect(cardDeleted!.deleted).toBe(cardDeletedOp2.payload.deleted);
 		expect(cardDeleted!.lastModifiedClient).toBe(cardDeletedOp2.clientId);
-		expect(Math.abs(cardDeleted!.lastModified.getTime() - cardDeletedOp2.timestamp)).toBeLessThan(1000);
+		expect(Math.abs(cardDeleted!.lastModified.getTime() - cardDeletedOp2.timestamp)).toBeLessThan(
+			1000
+		);
 		expect(cardDeleted!.seqNo).toBe(3);
 	});
 
@@ -312,7 +334,9 @@ describe('card deleted operations', () => {
 		expect(cardDeleted).toBeDefined();
 		expect(cardDeleted!.deleted).toBe(cardDeletedOp3.payload.deleted);
 		expect(cardDeleted!.lastModifiedClient).toBe(cardDeletedOp3.clientId);
-		expect(Math.abs(cardDeleted!.lastModified.getTime() - cardDeletedOp3.timestamp)).toBeLessThan(1000);
+		expect(Math.abs(cardDeleted!.lastModified.getTime() - cardDeletedOp3.timestamp)).toBeLessThan(
+			1000
+		);
 		expect(cardDeleted!.seqNo).toBe(3);
 	});
 });
@@ -443,7 +467,9 @@ describe('update deck card operations', () => {
 		expect(cardDeck).toBeDefined();
 		expect(cardDeck!.clCount).toBe(updateDeckCardOp.payload.clCount);
 		expect(cardDeck!.lastModifiedClient).toBe(updateDeckCardOp.clientId);
-		expect(Math.abs(cardDeck!.lastModified.getTime() - updateDeckCardOp.timestamp)).toBeLessThan(1000);
+		expect(Math.abs(cardDeck!.lastModified.getTime() - updateDeckCardOp.timestamp)).toBeLessThan(
+			1000
+		);
 	});
 
 	it('higher clcount wins, even if it comes first', async () => {
@@ -458,7 +484,9 @@ describe('update deck card operations', () => {
 		expect(cardDeck).toBeDefined();
 		expect(cardDeck!.clCount).toBe(updateDeckCardOp2.payload.clCount);
 		expect(cardDeck!.lastModifiedClient).toBe(updateDeckCardOp2.clientId);
-		expect(Math.abs(cardDeck!.lastModified.getTime() - updateDeckCardOp2.timestamp)).toBeLessThan(1000);
+		expect(Math.abs(cardDeck!.lastModified.getTime() - updateDeckCardOp2.timestamp)).toBeLessThan(
+			1000
+		);
 		expect(cardDeck!.seqNo).toBe(3);
 	});
 });

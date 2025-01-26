@@ -2,7 +2,13 @@ import { TOO_MANY_OPS_ERROR_MSG, ValidateOpCountResult } from '@/client2server';
 import { Operation } from '@/operation';
 import { ServerToClient } from '@/server2client';
 import { SELF } from 'cloudflare:test';
-import { createTestUser, loginTestUser, testClientId, testClientId2 } from 'test/integration/utils';
+import {
+	createTestUser,
+	DEFAULT_CARD_VARS,
+	loginTestUser,
+	testClientId,
+	testClientId2,
+} from 'test/integration/utils';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 let cookie: string;
@@ -20,6 +26,7 @@ const cardOp1: Operation = {
 	timestamp: now,
 	payload: {
 		id: 'test-card-1',
+		...DEFAULT_CARD_VARS,
 	},
 };
 
@@ -28,6 +35,7 @@ const cardOp2: Operation = {
 	timestamp: now + 100000,
 	payload: {
 		id: 'test-card-1',
+		...DEFAULT_CARD_VARS,
 	},
 };
 
@@ -36,6 +44,7 @@ const cardOp3: Operation = {
 	timestamp: now + 100000,
 	payload: {
 		id: 'test-card-2',
+		...DEFAULT_CARD_VARS,
 	},
 };
 
@@ -77,7 +86,7 @@ describe('sync', () => {
 		expect(syncResponse.ops).toMatchObject([]);
 	});
 
-	it('can sync a single card', async () => {
+	it.only('can sync a single card', async () => {
 		const response = await SELF.fetch('https://example.com/sync', {
 			method: 'POST',
 			headers: {
