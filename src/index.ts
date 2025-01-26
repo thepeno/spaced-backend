@@ -8,6 +8,7 @@ import {
 	verifyPassword,
 } from '@/auth';
 import { handleClientOperation, opToClient2ServerOp } from '@/client2server';
+import { createClientId } from '@/clientid';
 import * as schema from '@/db/schema';
 import { sessionMiddleware } from '@/middleware/session';
 import { operationSchema } from '@/operation';
@@ -169,3 +170,55 @@ app.get('/me', sessionMiddleware, async (c) => {
 		userId,
 	});
 });
+
+// For requesting a new client ID
+app.post('/clientId', sessionMiddleware, async (c) => {
+	const userId = c.get('userId');
+	const clientId = await createClientId(drizzle(c.env.D1), userId);
+
+	c.status(201);
+	return c.json({
+		clientId,
+	});
+});
+
+// The simple version of  this is to execute all requests in sequence
+// and only return when the requests are all done.
+// TODO: error handling with exponential backoff for each client request
+// TODO: non-blocking version (must buffer the requests for each client somehow)
+app.post('/sync', zValidator('json', z.array(operationSchema)), async (c) => {
+	const ops = c.req.valid('json');
+
+	const clientOps = ops.map((op) => opToClient2ServerOp(op, userid, clientid));
+	for (const op of clientOps) {
+		await handleClientOperation(op, c.env.D1);
+	}
+
+	return c.json({
+		success: true,
+	});
+});
+
+app.get(
+	'/sync',
+	zValidator(
+		'query',
+		z.object({
+			seqNo: z.coerce.number(),
+		})
+	),
+	async (c) => {
+		const { seqNo } = c.req.valid('query');
+
+		const db = drizzle(c.env.D1, {
+			schema,
+		});
+		const clientOps = await getAllOpsFromSeqNoExclClient(db, clientid, seqNo);
+
+		return c.json({
+			ops: clientOps,
+		});
+	}
+);
+
+export default app;
