@@ -7,7 +7,7 @@ import {
 	SESSION_COOKIE_NAME,
 	verifyPassword,
 } from '@/auth';
-import { handleClientOperation, opToClient2ServerOp } from '@/client2server';
+import { handleClientOperation, opToClient2ServerOp, validateOpCount } from '@/client2server';
 import { createClientId } from '@/clientid';
 import * as schema from '@/db/schema';
 import { clientIdMiddleware } from '@/middleware/clientid';
@@ -205,6 +205,15 @@ app.post(
 		const userId = c.get('userId');
 		const clientId = c.get('clientId');
 		const ops = c.req.valid('json');
+
+		const validateOpCountResult = validateOpCount(ops);
+		if (!validateOpCountResult.success) {
+			c.status(413);
+			return c.json({
+				success: false,
+				error: validateOpCountResult.error,
+			});
+		}
 
 		const clientOps = ops.map((op) => opToClient2ServerOp(op, userId, clientId));
 		for (const op of clientOps) {

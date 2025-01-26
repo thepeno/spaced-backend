@@ -1,12 +1,8 @@
+import { TOO_MANY_OPS_ERROR_MSG, ValidateOpCountResult } from '@/client2server';
 import { Operation } from '@/operation';
 import { ServerToClient } from '@/server2client';
 import { SELF } from 'cloudflare:test';
-import {
-	createTestUser,
-	loginTestUser,
-	testClientId,
-	testClientId2
-} from 'test/integration/utils';
+import { createTestUser, loginTestUser, testClientId, testClientId2 } from 'test/integration/utils';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 let cookie: string;
@@ -216,8 +212,26 @@ describe('sync', () => {
 			},
 		});
 		const syncResponse2: SyncResponseGET = await response2.json();
-		expect(syncResponse2.ops).toMatchObject([
-			{ ...cardOp3, seqNo: 3 },
-		]);
+		expect(syncResponse2.ops).toMatchObject([{ ...cardOp3, seqNo: 3 }]);
+	});
+
+	it('returns an error if too many operations are sent', async () => {
+		const response = await SELF.fetch('https://example.com/sync', {
+			method: 'POST',
+			headers: {
+				Cookie: cookie,
+				'Content-Type': 'application/json',
+				'X-Client-Id': testClientId,
+			},
+			body: JSON.stringify(Array.from({ length: 101 }, () => cardOp1)),
+		});
+
+		expect(response.status).toBe(413);
+		const syncResponse: ValidateOpCountResult = await response.json();
+		expect(syncResponse.success).toBe(false);
+		if (syncResponse.success) {
+			throw new Error('Test failed');
+		}
+		expect(syncResponse.error).toBe(TOO_MANY_OPS_ERROR_MSG);
 	});
 });
