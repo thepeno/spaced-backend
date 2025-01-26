@@ -5,7 +5,7 @@ import { env, SELF } from 'cloudflare:test';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 import {
-	createTestUser,
+	createTestUsers,
 	loginTestUser,
 	testUserEmail,
 	testUserPassword,
@@ -13,7 +13,7 @@ import {
 import { beforeEach, describe, expect, it } from 'vitest';
 
 beforeEach(async () => {
-	await createTestUser();
+	await createTestUsers();
 });
 
 const db = drizzle(env.D1, {

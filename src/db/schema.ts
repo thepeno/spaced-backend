@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 import { integer, primaryKey, real, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
 
 export const states = ['New', 'Learning', 'Review', 'Relearning'] as const;
@@ -162,3 +162,60 @@ export const cardDecks = sqliteTable(
 );
 
 export type CardDeck = typeof cardDecks.$inferSelect;
+
+// Relations
+
+export const usersRelations = relations(users, ({ many }) => ({
+	clients: many(clients),
+	cards: many(cards),
+	decks: many(decks),
+}));
+
+export const clientsRelations = relations(clients, ({ one }) => ({
+	user: one(users, {
+		fields: [clients.userId],
+		references: [users.id],
+	}),
+}));
+
+export const cardsRelations = relations(cards, ({ one }) => ({
+	user: one(users, {
+		fields: [cards.userId],
+		references: [users.id],
+	}),
+	cardContents: one(cardContents),
+	cardDeleted: one(cardDeleted),
+}));
+
+export const cardContentsRelations = relations(cardContents, ({ one }) => ({
+	card: one(cards, {
+		fields: [cardContents.cardId],
+		references: [cards.id],
+	}),
+}));
+
+export const cardDeletedRelations = relations(cardDeleted, ({ one }) => ({
+	card: one(cards, {
+		fields: [cardDeleted.cardId],
+		references: [cards.id],
+	}),
+}));
+
+export const decksRelations = relations(decks, ({ many, one }) => ({
+	cardDecks: many(cardDecks),
+	user: one(users, {
+		fields: [decks.userId],
+		references: [users.id],
+	}),
+}));
+
+export const cardDecksRelations = relations(cardDecks, ({ one }) => ({
+	card: one(cards, {
+		fields: [cardDecks.cardId],
+		references: [cards.id],
+	}),
+	deck: one(decks, {
+		fields: [cardDecks.deckId],
+		references: [decks.id],
+	}),
+}));

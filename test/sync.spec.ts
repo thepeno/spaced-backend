@@ -3,7 +3,7 @@ import { Operation } from '@/operation';
 import { ServerToClient } from '@/server2client';
 import { SELF } from 'cloudflare:test';
 import {
-	createTestUser,
+	createTestUsers,
 	DEFAULT_CARD_VARS,
 	loginTestUser,
 	testClientId,
@@ -13,7 +13,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 let cookie: string;
 beforeEach(async () => {
-	await createTestUser();
+	await createTestUsers();
 	const { cookie: cookieFromLogin } = await loginTestUser();
 	cookie = cookieFromLogin;
 });

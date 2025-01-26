@@ -12,7 +12,7 @@ import { env } from 'cloudflare:test';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 import {
-	createTestUser,
+	createTestUsers,
 	DEFAULT_CARD_VARS,
 	testClientId,
 	testClientId2,
@@ -23,7 +23,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 let db: DB;
 
 beforeEach(async () => {
-	await createTestUser();
+	await createTestUsers();
 	db = drizzle(env.D1, {
 		schema,
 	});

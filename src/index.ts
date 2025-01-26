@@ -239,11 +239,12 @@ app.get(
 	async (c) => {
 		const { seqNo } = c.req.valid('query');
 		const clientId = c.get('clientId');
+		const userId = c.get('userId');
 
 		const db = drizzle(c.env.D1, {
 			schema,
 		});
-		const clientOps = await getAllOpsFromSeqNoExclClient(db, clientId, seqNo);
+		const clientOps = await getAllOpsFromSeqNoExclClient(db, userId, clientId, seqNo);
 
 		return c.json({
 			ops: clientOps,

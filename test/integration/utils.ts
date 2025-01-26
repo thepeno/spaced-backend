@@ -11,19 +11,23 @@ export const testUser = {
 	passwordHash: 'Xj+SO0CHAnpDOZyhr2+KAmz1n60hDmogm+9UkmLi4p0K78+RyxWVbqT0u/TsIOBP',
 } satisfies schema.NewUser;
 
+export const testUser2 = {
+	id: 'test2',
+	email: 'test2@email.com',
+	passwordHash: 'Xj+SO0CHAnpDOZyhr2+KAmz1n60hDmogm+9UkmLi4p0K78+RyxWVbqT0u/TsIOBP',
+} satisfies schema.NewUser;
+
 export const testClientId = 'test-1';
 export const testClientId2 = 'test-2';
 
-export async function createTestUser(): Promise<schema.User> {
+export async function createTestUsers(): Promise<schema.User> {
 	const db = drizzle(env.D1, {
 		schema,
 	});
 
 	const [user] = await db
 		.insert(schema.users)
-		.values({
-			...testUser,
-		})
+		.values([testUser, testUser2])
 		.returning();
 
 	if (!user) {

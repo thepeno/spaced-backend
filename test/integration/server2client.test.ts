@@ -7,7 +7,7 @@ import { env } from 'cloudflare:test';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 import {
-	createTestUser,
+	createTestUsers,
 	DEFAULT_CARD_VARS,
 	testClientId,
 	testClientId2,
@@ -17,7 +17,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 let db: DB;
 beforeEach(async () => {
-	await createTestUser();
+	await createTestUsers();
 	db = drizzle(env.D1, {
 		schema,
 	});
@@ -79,20 +79,20 @@ async function addCard() {
 
 describe('server2client', () => {
 	it('should return empty array if no operations', async () => {
-		const operations = await getAllOpsFromSeqNoExclClient(db, 'not-the-client', 0);
+		const operations = await getAllOpsFromSeqNoExclClient(db, testUser.id, testClientId, 0);
 		expect(operations).toHaveLength(0);
 	});
 
 	it('should return empty array if request operations from same client', async () => {
 		await handleClientOperation(cardOp1, env.D1);
 
-		const operations = await getAllOpsFromSeqNoExclClient(db, testClientId, 0);
+		const operations = await getAllOpsFromSeqNoExclClient(db, testUser.id, testClientId, 0);
 		expect(operations).toHaveLength(0);
 	});
 
 	it('should return operations if different client requesting', async () => {
 		await addCard();
-		const operations = await getAllOpsFromSeqNoExclClient(db, 'not-the-client', 0);
+		const operations = await getAllOpsFromSeqNoExclClient(db, testUser.id, testClientId2, 0);
 
 		expect(operations).toHaveLength(3);
 		const cardOperation = operations[0] as ServerToClient<CardOperation>;
@@ -126,7 +126,7 @@ describe('server2client', () => {
 		}
 		const nextSeqNo = result.nextSeqNo;
 
-		const operations = await getAllOpsFromSeqNoExclClient(db, 'not-the-client', nextSeqNo);
+		const operations = await getAllOpsFromSeqNoExclClient(db, testUser.id, testClientId2, nextSeqNo);
 		expect(operations).toHaveLength(0);
 	});
 
@@ -134,7 +134,7 @@ describe('server2client', () => {
 		await addCard();
 		await handleClientOperation(cardContentOp2FromClient2, env.D1);
 
-		const operations = await getAllOpsFromSeqNoExclClient(db, 'not-the-client', 0);
+		const operations = await getAllOpsFromSeqNoExclClient(db, testUser.id, 'not-the-client', 0);
 
 		expect(operations).toHaveLength(3);
 
@@ -158,7 +158,7 @@ describe('server2client', () => {
 		await addCard();
 		await handleClientOperation(cardContentOp2FromClient2, env.D1);
 
-		const operations = await getAllOpsFromSeqNoExclClient(db, testClientId2, 0);
+		const operations = await getAllOpsFromSeqNoExclClient(db, testUser.id, testClientId2, 0);
 		expect(operations).toHaveLength(2);
 
 		const cardOperation = operations[0] as ServerToClient<CardOperation>;
