@@ -11,6 +11,8 @@ CREATE TABLE \`card_contents\` (
 	FOREIGN KEY (\`last_modified_client\`) REFERENCES \`clients\`(\`id\`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE INDEX \`card_contents_card_id_idx\` ON \`card_contents\` (\`card_id\`);--> statement-breakpoint
+CREATE INDEX \`card_contents_card_id_seq_no_modified_client_idx\` ON \`card_contents\` (\`card_id\`,\`seq_no\`,\`last_modified_client\`);--> statement-breakpoint
 CREATE TABLE \`card_decks\` (
 	\`card_id\` text NOT NULL,
 	\`deck_id\` text NOT NULL,
@@ -24,6 +26,9 @@ CREATE TABLE \`card_decks\` (
 	FOREIGN KEY (\`last_modified_client\`) REFERENCES \`clients\`(\`id\`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE INDEX \`card_decks_card_id_idx\` ON \`card_decks\` (\`card_id\`);--> statement-breakpoint
+CREATE INDEX \`card_decks_deck_id_idx\` ON \`card_decks\` (\`deck_id\`);--> statement-breakpoint
+CREATE INDEX \`card_decks_card_id_deck_id_seq_no_modified_client_idx\` ON \`card_decks\` (\`deck_id\`,\`card_id\`,\`seq_no\`,\`last_modified_client\`);--> statement-breakpoint
 CREATE TABLE \`card_deleted\` (
 	\`card_id\` text PRIMARY KEY NOT NULL,
 	\`deleted\` integer DEFAULT true NOT NULL,
@@ -34,6 +39,8 @@ CREATE TABLE \`card_deleted\` (
 	FOREIGN KEY (\`last_modified_client\`) REFERENCES \`clients\`(\`id\`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE INDEX \`card_deleted_card_id_idx\` ON \`card_deleted\` (\`card_id\`);--> statement-breakpoint
+CREATE INDEX \`card_deleted_card_id_seq_no_modified_client_idx\` ON \`card_deleted\` (\`card_id\`,\`seq_no\`,\`last_modified_client\`);--> statement-breakpoint
 CREATE TABLE \`cards\` (
 	\`id\` text PRIMARY KEY NOT NULL,
 	\`last_modified\` integer DEFAULT (current_timestamp) NOT NULL,
@@ -53,13 +60,15 @@ CREATE TABLE \`cards\` (
 	FOREIGN KEY (\`last_modified_client\`) REFERENCES \`clients\`(\`id\`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE INDEX \`cards_user_id_idx\` ON \`cards\` (\`user_id\`);--> statement-breakpoint
+CREATE INDEX \`cards_user_id_seq_no_modified_client_idx\` ON \`cards\` (\`user_id\`,\`seq_no\`,\`last_modified_client\`);--> statement-breakpoint
 CREATE TABLE \`clients\` (
 	\`id\` text PRIMARY KEY NOT NULL,
 	\`last_modified\` integer DEFAULT (current_timestamp) NOT NULL,
 	\`user_id\` text NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX \`user_id_idx\` ON \`clients\` (\`user_id\`,\`id\`);--> statement-breakpoint
+CREATE UNIQUE INDEX \`clients_user_id_idx\` ON \`clients\` (\`user_id\`,\`id\`);--> statement-breakpoint
 CREATE TABLE \`decks\` (
 	\`id\` text PRIMARY KEY NOT NULL,
 	\`name\` text NOT NULL,
@@ -73,6 +82,8 @@ CREATE TABLE \`decks\` (
 	FOREIGN KEY (\`last_modified_client\`) REFERENCES \`clients\`(\`id\`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE INDEX \`decks_user_id_idx\` ON \`decks\` (\`user_id\`);--> statement-breakpoint
+CREATE INDEX \`decks_user_id_seq_no_modified_client_idx\` ON \`decks\` (\`user_id\`,\`seq_no\`,\`last_modified_client\`);--> statement-breakpoint
 CREATE TABLE \`sessions\` (
 	\`id\` text PRIMARY KEY NOT NULL,
 	\`user_id\` text NOT NULL,
@@ -83,6 +94,7 @@ CREATE TABLE \`sessions\` (
 	FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
+CREATE INDEX \`sessions_user_id_idx\` ON \`sessions\` (\`user_id\`);--> statement-breakpoint
 CREATE TABLE \`users\` (
 	\`id\` text PRIMARY KEY NOT NULL,
 	\`last_modified\` integer DEFAULT (current_timestamp) NOT NULL,
@@ -94,5 +106,6 @@ CREATE TABLE \`users\` (
 	\`password_reset_token\` text,
 	\`password_reset_token_expires_at\` integer
 );
-;
+--> statement-breakpoint
+CREATE UNIQUE INDEX \`users_email_idx\` ON \`users\` (\`email\`);;
 `;
