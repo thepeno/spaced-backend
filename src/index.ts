@@ -14,17 +14,32 @@ import { clientIdMiddleware } from '@/middleware/clientid';
 import { sessionMiddleware } from '@/middleware/session';
 import { operationSchema } from '@/operation';
 import { getAllOpsFromSeqNoExclClient } from '@/server2client';
+import { redactEmail } from '@/utils';
 import { zValidator } from '@hono/zod-validator';
 import { drizzle } from 'drizzle-orm/d1';
 import { Hono } from 'hono';
 import { deleteCookie, getSignedCookie, setSignedCookie } from 'hono/cookie';
-import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
+import { logger as requestLogger } from 'hono/logger';
 import { CookieOptions } from 'hono/utils/cookie';
+import Logger from 'pino';
 import { z } from 'zod';
 
+const logger = Logger({
+	level: 'info',
+	transport: {
+		target: 'pino-pretty',
+		options: {
+			singleLine: true,
+			colorize: true,
+			levelFirst: true,
+			translateTime: true,
+		},
+	},
+});
+
 const app = new Hono<{ Bindings: Env }>();
-app.use(logger());
+app.use(requestLogger());
 app.use(
 	cors({
 		origin: 'http://localhost:5173',
@@ -109,6 +124,7 @@ app.post(
 	),
 	async (c) => {
 		const { email, password } = c.req.valid('json');
+		logger.info({ email: redactEmail(email) }, 'Login request');
 		const db = drizzle(c.env.D1, {
 			schema,
 		});
@@ -116,6 +132,7 @@ app.post(
 		const user = await getUser(db, email);
 
 		if (!user) {
+			logger.info({ email: redactEmail(email) }, 'Login request failed: user not found');
 			c.status(401);
 			return c.json({
 				success: false,
@@ -125,6 +142,7 @@ app.post(
 		const valid = await verifyPassword(user.passwordHash, password);
 
 		if (!valid) {
+			logger.info({ email: redactEmail(email) }, 'Login request failed: invalid password');
 			c.status(401);
 			return c.json({
 				success: false,
@@ -134,6 +152,7 @@ app.post(
 		const createSessionResult = await createSession(db, user.id);
 
 		if (!createSessionResult.success) {
+			logger.error({ email: redactEmail(email) }, 'Login request failed: create session failed');
 			c.status(500);
 			return c.json({
 				success: false,
@@ -148,7 +167,7 @@ app.post(
 			c.env.COOKIE_SECRET,
 			cookieOptions
 		);
-
+		logger.info({ email: redactEmail(email) }, 'Login request successful');
 		return c.json({
 			success: true,
 		});
