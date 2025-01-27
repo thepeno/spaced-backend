@@ -19,11 +19,20 @@ import { drizzle } from 'drizzle-orm/d1';
 import { Hono } from 'hono';
 import { deleteCookie, getSignedCookie, setSignedCookie } from 'hono/cookie';
 import { logger } from 'hono/logger';
+import { cors } from 'hono/cors';
 import { CookieOptions } from 'hono/utils/cookie';
 import { z } from 'zod';
 
 const app = new Hono<{ Bindings: Env }>();
 app.use(logger());
+app.use(
+	cors({
+		origin: 'http://localhost:5173',
+		allowHeaders: ['Content-Type', 'Authorization', 'X-Client-Id'],
+		allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+		credentials: true,
+	})
+);
 
 const devCookieOptions: CookieOptions = {
 	expires: new Date(Date.now() + COOKIE_EXPIRATION_TIME_MS),
