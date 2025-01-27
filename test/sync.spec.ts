@@ -86,7 +86,7 @@ describe('sync', () => {
 				'Content-Type': 'application/json',
 				'X-Client-Id': testClientId,
 			},
-			body: JSON.stringify([cardOp1]),
+			body: JSON.stringify({ ops: [cardOp1] }),
 		});
 
 		expect(response.status).toBe(200);
@@ -102,7 +102,7 @@ describe('sync', () => {
 				'Content-Type': 'application/json',
 			},
 			method: 'POST',
-			body: JSON.stringify([cardOp1]),
+			body: JSON.stringify({ ops: [cardOp1] }),
 		});
 
 		expect(response.status).toBe(200);
@@ -138,7 +138,7 @@ describe('sync', () => {
 				'Content-Type': 'application/json',
 			},
 			method: 'POST',
-			body: JSON.stringify([cardOp1]),
+			body: JSON.stringify({ ops: [cardOp1] }),
 		});
 		expect(response2.status).toBe(200);
 		const syncResponse2: SyncResponsePOST = await response2.json();
@@ -169,7 +169,7 @@ describe('sync', () => {
 				'Content-Type': 'application/json',
 				'X-Client-Id': testClientId,
 			},
-			body: JSON.stringify([cardOp1, cardOp2, cardOp3]),
+			body: JSON.stringify({ ops: [cardOp1, cardOp2, cardOp3] }),
 		});
 
 		expect(response.status).toBe(200);
@@ -199,7 +199,7 @@ describe('sync', () => {
 				'Content-Type': 'application/json',
 				'X-Client-Id': testClientId,
 			},
-			body: JSON.stringify([cardOp1, cardOp2, cardOp3]),
+			body: JSON.stringify({ ops: [cardOp1, cardOp2, cardOp3] }),
 		});
 
 		expect(response.status).toBe(200);
@@ -224,7 +224,7 @@ describe('sync', () => {
 				'Content-Type': 'application/json',
 				'X-Client-Id': testClientId,
 			},
-			body: JSON.stringify(Array.from({ length: 101 }, () => cardOp1)),
+			body: JSON.stringify({ ops: Array.from({ length: 101 }, () => cardOp1) }),
 		});
 
 		expect(response.status).toBe(413);

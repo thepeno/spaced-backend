@@ -57,7 +57,7 @@ describe('multi-user', () => {
 				'X-Client-Id': testUser2ClientId,
 				'Content-Type': 'application/json',
 			},
-			body: JSON.stringify([cardOp1]),
+			body: JSON.stringify({ ops: [cardOp1] }),
 		});
 
 		expect(response.status).toBe(200);
@@ -117,13 +117,17 @@ describe('multi-user', () => {
 					'X-Client-Id': testClientId,
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify([{
-					...cardOp1,
-					payload: {
-						...cardOp1.payload,
-						id: 'test-1-card-1',
-					},
-				}]),
+				body: JSON.stringify({
+					ops: [
+						{
+							...cardOp1,
+							payload: {
+								...cardOp1.payload,
+								id: 'test-1-card-1',
+							},
+						},
+					],
+				}),
 			}),
 			SELF.fetch('https://example.com/sync?seqNo=0', {
 				method: 'POST',
@@ -132,7 +136,9 @@ describe('multi-user', () => {
 					'X-Client-Id': testUser2ClientId,
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify([cardOp1]),
+				body: JSON.stringify({
+					ops: [cardOp1],
+				}),
 			}),
 		]);
 

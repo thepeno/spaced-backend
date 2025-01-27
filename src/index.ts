@@ -229,6 +229,12 @@ app.post(
 	sessionMiddleware,
 	clientIdMiddleware,
 	zValidator('json', z.array(operationSchema)),
+	zValidator(
+		'json',
+		z.object({
+			ops: z.array(operationSchema),
+		})
+	),
 	async (c) => {
 		const userId = c.get('userId');
 		const clientId = c.get('clientId');
