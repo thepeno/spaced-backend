@@ -22,21 +22,8 @@ import { deleteCookie, getSignedCookie, setSignedCookie } from 'hono/cookie';
 import { cors } from 'hono/cors';
 import { logger as requestLogger } from 'hono/logger';
 import { CookieOptions } from 'hono/utils/cookie';
-import Logger from 'pino';
 import { z } from 'zod';
-
-const logger = Logger({
-	level: 'info',
-	transport: {
-		target: 'pino-pretty',
-		options: {
-			singleLine: true,
-			colorize: true,
-			levelFirst: true,
-			translateTime: true,
-		},
-	},
-});
+import logger from './logger';
 
 const app = new Hono<{ Bindings: Env }>();
 app.use(requestLogger());
@@ -203,6 +190,7 @@ app.post('/logout', async (c) => {
 
 app.get('/me', sessionMiddleware, async (c) => {
 	const userId = c.get('userId');
+	logger.info({ userId }, 'GET /me request');
 
 	return c.json({
 		userId,
@@ -228,7 +216,6 @@ app.post(
 	'/sync',
 	sessionMiddleware,
 	clientIdMiddleware,
-	zValidator('json', z.array(operationSchema)),
 	zValidator(
 		'json',
 		z.object({
@@ -238,7 +225,7 @@ app.post(
 	async (c) => {
 		const userId = c.get('userId');
 		const clientId = c.get('clientId');
-		const ops = c.req.valid('json');
+		const { ops } = c.req.valid('json');
 
 		const validateOpCountResult = validateOpCount(ops);
 		if (!validateOpCountResult.success) {
