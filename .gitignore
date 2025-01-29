@@ -138,3 +138,6 @@ dist
 .wrangler/
 
 .dev.vars
+
+local/
+.env.old
