@@ -271,7 +271,7 @@ export type ValidateOpCountResult =
 			error: string;
 	  };
 
-const MAX_OPS = 100;
+const MAX_OPS = 10000;
 export const TOO_MANY_OPS_ERROR_MSG = 'Too many operations';
 
 export function validateOpCount(ops: Operation[]): ValidateOpCountResult {

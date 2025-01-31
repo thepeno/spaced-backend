@@ -224,7 +224,7 @@ describe('sync', () => {
 				'Content-Type': 'application/json',
 				'X-Client-Id': testClientId,
 			},
-			body: JSON.stringify({ ops: Array.from({ length: 101 }, () => cardOp1) }),
+			body: JSON.stringify({ ops: Array.from({ length: 10001 }, () => cardOp1) }),
 		});
 
 		expect(response.status).toBe(413);
