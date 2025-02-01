@@ -1,9 +1,11 @@
 import { DB } from '@/db';
 import * as schema from '@/db/schema';
 import {
+	CardBookmarkedOperation,
 	CardContentOperation,
 	CardDeletedOperation,
 	CardOperation,
+	CardSuspendedOperation,
 	DeckOperation,
 	Operation,
 	UpdateDeckCardOperation,
@@ -134,6 +136,76 @@ async function getCardDeletedFromSeqNo(
 	}));
 }
 
+async function getCardBookmarkedFromSeqNo(
+	db: DB,
+	userId: string,
+	requestingClientId: string,
+	seqNo: number
+): Promise<ServerToClient<CardBookmarkedOperation>[]> {
+	const cardBookmarked = await db
+		.select({
+			seqNo: schema.cardBookmarked.seqNo,
+			lastModified: schema.cardBookmarked.lastModified,
+			cardId: schema.cardBookmarked.cardId,
+			bookmarked: schema.cardBookmarked.bookmarked,
+		})
+		.from(schema.cards)
+		.where(eq(schema.cards.userId, userId))
+		.innerJoin(
+			schema.cardBookmarked,
+			and(
+				eq(schema.cards.id, schema.cardBookmarked.cardId),
+				gt(schema.cardBookmarked.seqNo, seqNo),
+				ne(schema.cardBookmarked.lastModifiedClient, requestingClientId)
+			)
+		);
+
+	return cardBookmarked.map((cardBookmarked) => ({
+		type: 'cardBookmarked',
+		seqNo: cardBookmarked.seqNo,
+		timestamp: cardBookmarked.lastModified.getTime(),
+		payload: {
+			cardId: cardBookmarked.cardId,
+			bookmarked: cardBookmarked.bookmarked,
+		},
+	}));
+}
+
+async function getCardSuspendedFromSeqNo(
+	db: DB,
+	userId: string,
+	requestingClientId: string,
+	seqNo: number
+): Promise<ServerToClient<CardSuspendedOperation>[]> {
+	const cardSuspended = await db
+		.select({
+			seqNo: schema.cardSuspended.seqNo,
+			lastModified: schema.cardSuspended.lastModified,
+			cardId: schema.cardSuspended.cardId,
+			suspended: schema.cardSuspended.suspended,
+		})
+		.from(schema.cards)
+		.where(eq(schema.cards.userId, userId))
+		.innerJoin(
+			schema.cardSuspended,
+			and(
+				eq(schema.cards.id, schema.cardSuspended.cardId),
+				gt(schema.cardSuspended.seqNo, seqNo),
+				ne(schema.cardSuspended.lastModifiedClient, requestingClientId)
+			)
+		);
+
+	return cardSuspended.map((cardSuspended) => ({
+		type: 'cardSuspended',
+		seqNo: cardSuspended.seqNo,
+		timestamp: cardSuspended.lastModified.getTime(),
+		payload: {
+			cardId: cardSuspended.cardId,
+			suspended: cardSuspended.suspended,
+		},
+	}));
+}
+
 async function getDeckFromSeqNo(
 	db: DB,
 	userId: string,
@@ -226,6 +298,8 @@ export async function getAllOpsFromSeqNoExclClient(
 		getCardsFromSeqNo(db, userId, requestingClientId, seqNo),
 		getCardContentFromSeqNo(db, userId, requestingClientId, seqNo),
 		getCardDeletedFromSeqNo(db, userId, requestingClientId, seqNo),
+		getCardBookmarkedFromSeqNo(db, userId, requestingClientId, seqNo),
+		getCardSuspendedFromSeqNo(db, userId, requestingClientId, seqNo),
 		getDeckFromSeqNo(db, userId, requestingClientId, seqNo),
 		getDeckCardFromSeqNo(db, userId, requestingClientId, seqNo),
 	]);

@@ -108,4 +108,28 @@ CREATE TABLE \`users\` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX \`users_email_idx\` ON \`users\` (\`email\`);;
+CREATE TABLE \`card_bookmarked\` (
+	\`card_id\` text PRIMARY KEY NOT NULL,
+	\`bookmarked\` integer DEFAULT false NOT NULL,
+	\`last_modified\` integer DEFAULT (current_timestamp) NOT NULL,
+	\`seq_no\` integer NOT NULL,
+	\`last_modified_client\` text NOT NULL,
+	FOREIGN KEY (\`card_id\`) REFERENCES \`cards\`(\`id\`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (\`last_modified_client\`) REFERENCES \`clients\`(\`id\`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE INDEX \`card_bookmarked_card_id_idx\` ON \`card_bookmarked\` (\`card_id\`);--> statement-breakpoint
+CREATE INDEX \`card_bookmarked_card_id_seq_no_modified_client_idx\` ON \`card_bookmarked\` (\`card_id\`,\`seq_no\`,\`last_modified_client\`);--> statement-breakpoint
+CREATE TABLE \`card_suspended\` (
+	\`card_id\` text PRIMARY KEY NOT NULL,
+	\`suspended\` integer DEFAULT (current_timestamp) NOT NULL,
+	\`last_modified\` integer DEFAULT (current_timestamp) NOT NULL,
+	\`seq_no\` integer NOT NULL,
+	\`last_modified_client\` text NOT NULL,
+	FOREIGN KEY (\`card_id\`) REFERENCES \`cards\`(\`id\`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (\`last_modified_client\`) REFERENCES \`clients\`(\`id\`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE INDEX \`card_suspended_card_id_idx\` ON \`card_suspended\` (\`card_id\`);--> statement-breakpoint
+CREATE INDEX \`card_suspended_card_id_seq_no_modified_client_idx\` ON \`card_suspended\` (\`card_id\`,\`seq_no\`,\`last_modified_client\`);;
 `;

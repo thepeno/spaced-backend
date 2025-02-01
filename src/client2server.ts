@@ -1,9 +1,11 @@
 import { DB } from '@/db';
 import * as schema from '@/db/schema';
 import {
+	CardBookmarkedOperation,
 	CardContentOperation,
 	CardDeletedOperation,
 	CardOperation,
+	CardSuspendedOperation,
 	DeckOperation,
 	Operation,
 	UpdateDeckCardOperation,
@@ -158,6 +160,66 @@ export async function handleCardDeletedOperation(
 		});
 }
 
+export async function handleCardBookmarkedOperation(
+	op: ClientToServer<CardBookmarkedOperation>,
+	db: DB,
+	seqNo: number
+) {
+	await db
+		.insert(schema.cardBookmarked)
+		.values({
+			cardId: op.payload.cardId,
+			bookmarked: op.payload.bookmarked,
+			lastModified: new Date(op.timestamp),
+			lastModifiedClient: op.clientId,
+			seqNo,
+		})
+		.onConflictDoUpdate({
+			target: schema.cardBookmarked.cardId,
+			set: {
+				bookmarked: op.payload.bookmarked,
+				lastModified: new Date(op.timestamp),
+				lastModifiedClient: op.clientId,
+				seqNo,
+			},
+			setWhere: sql`
+		excluded.last_modified > ${schema.cardBookmarked.lastModified}
+		OR (excluded.last_modified = ${schema.cardBookmarked.lastModified}
+			AND excluded.last_modified_client > ${schema.cardBookmarked.lastModifiedClient})
+		`,
+		});
+}
+
+export async function handleCardSuspendedOperation(
+	op: ClientToServer<CardSuspendedOperation>,
+	db: DB,
+	seqNo: number
+) {
+	await db
+		.insert(schema.cardSuspended)
+		.values({
+			cardId: op.payload.cardId,
+			suspended: op.payload.suspended,
+			lastModified: new Date(op.timestamp),
+			lastModifiedClient: op.clientId,
+			seqNo,
+		})
+		.onConflictDoUpdate({
+			target: schema.cardSuspended.cardId,
+			set: {
+				suspended: op.payload.suspended,
+				lastModified: new Date(op.timestamp),
+				lastModifiedClient: op.clientId,
+				seqNo,
+			},
+			setWhere: sql`
+		excluded.last_modified > ${schema.cardSuspended.lastModified}
+		OR (excluded.last_modified = ${schema.cardSuspended.lastModified}
+			AND excluded.last_modified_client > ${schema.cardSuspended.lastModifiedClient})
+		`,
+		});
+}
+
 export async function handleDeckOperation(
 	op: ClientToServer<DeckOperation>,
 	db: DB,
@@ -237,6 +299,10 @@ export async function handleClientOperation(op: ClientToServer<Operation>, db: D
 			return handleCardContentOperation(op, drizzleDb, seqNo);
 		case 'cardDeleted':
 			return handleCardDeletedOperation(op, drizzleDb, seqNo);
+		case 'cardBookmarked':
+			return handleCardBookmarkedOperation(op, drizzleDb, seqNo);
+		case 'cardSuspended':
+			return handleCardSuspendedOperation(op, drizzleDb, seqNo);
 		case 'deck':
 			return handleDeckOperation(op, drizzleDb, seqNo);
 		case 'updateDeckCard':

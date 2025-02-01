@@ -59,6 +59,36 @@ export const cardDeletedOperationSchema = z.object({
 	timestamp: z.number(),
 }) satisfies z.ZodType<CardDeletedOperation>;
 
+export type CardBookmarkedOperation = {
+	type: 'cardBookmarked';
+	payload: StripMetadata<schema.CardBookmarked>;
+	timestamp: number;
+};
+
+export const cardBookmarkedOperationSchema = z.object({
+	type: z.literal('cardBookmarked'),
+	payload: z.object({
+		cardId: z.string(),
+		bookmarked: z.boolean(),
+	}),
+	timestamp: z.number(),
+}) satisfies z.ZodType<CardBookmarkedOperation>;
+
+export type CardSuspendedOperation = {
+	type: 'cardSuspended';
+	payload: StripMetadata<schema.CardSuspended>;
+	timestamp: number;
+};
+
+export const cardSuspendedOperationSchema = z.object({
+	type: z.literal('cardSuspended'),
+	payload: z.object({
+		cardId: z.string(),
+		suspended: z.coerce.date(),
+	}),
+	timestamp: z.number(),
+}) satisfies z.ZodType<CardSuspendedOperation>;
+
 export type DeckOperation = {
 	type: 'deck';
 	payload: StripMetadata<schema.Deck>;
@@ -96,6 +126,8 @@ export type Operation =
 	| CardOperation
 	| CardContentOperation
 	| CardDeletedOperation
+	| CardBookmarkedOperation
+	| CardSuspendedOperation
 	| DeckOperation
 	| UpdateDeckCardOperation;
 
@@ -103,6 +135,8 @@ export const operationSchema = z.union([
 	cardOperationSchema,
 	cardContentOperationSchema,
 	cardDeletedOperationSchema,
+	cardBookmarkedOperationSchema,
+	cardSuspendedOperationSchema,
 	deckOperationSchema,
 	updateDeckCardOperationSchema,
 ]);

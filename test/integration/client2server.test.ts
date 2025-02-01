@@ -2,9 +2,11 @@ import { ClientToServer, handleClientOperation } from '@/client2server';
 import { DB } from '@/db';
 import * as schema from '@/db/schema';
 import {
+	CardBookmarkedOperation,
 	CardContentOperation,
 	CardDeletedOperation,
 	CardOperation,
+	CardSuspendedOperation,
 	DeckOperation,
 	UpdateDeckCardOperation,
 } from '@/operation';
@@ -488,5 +490,177 @@ describe('update deck card operations', () => {
 			1000
 		);
 		expect(cardDeck!.seqNo).toBe(3);
+	});
+});
+
+describe('card bookmarked operations', () => {
+	const cardBookmarkedOp: ClientToServer<CardBookmarkedOperation> = {
+		type: 'cardBookmarked',
+		userId: testUser.id,
+		clientId: testClientId,
+		timestamp: now,
+		payload: {
+			cardId: 'test-card-1',
+			bookmarked: true,
+		},
+	};
+
+	const cardBookmarkedOp2: ClientToServer<CardBookmarkedOperation> = {
+		type: 'cardBookmarked',
+		userId: testUser.id,
+		clientId: testClientId,
+		timestamp: now + 100000,
+		payload: {
+			cardId: 'test-card-1',
+			bookmarked: false,
+		},
+	};
+
+	const cardBookmarkedOp3: ClientToServer<CardBookmarkedOperation> = {
+		type: 'cardBookmarked',
+		userId: testUser.id,
+		clientId: testClientId2,
+		timestamp: now,
+		payload: {
+			cardId: 'test-card-1',
+			bookmarked: false,
+		},
+	};
+
+	it('should insert a new card bookmarked', async () => {
+		await handleClientOperation(cardOp1, env.D1);
+		await handleClientOperation(cardBookmarkedOp, env.D1);
+
+		const cardBookmarked = await db.query.cardBookmarked.findFirst({
+			where: eq(schema.cardBookmarked.cardId, cardBookmarkedOp.payload.cardId),
+		});
+
+		expect(cardBookmarked).toBeDefined();
+		expect(cardBookmarked!.cardId).toBe(cardBookmarkedOp.payload.cardId);
+		expect(cardBookmarked!.bookmarked).toBe(cardBookmarkedOp.payload.bookmarked);
+		expect(cardBookmarked!.lastModifiedClient).toBe(cardBookmarkedOp.clientId);
+		expect(
+			Math.abs(cardBookmarked!.lastModified.getTime() - cardBookmarkedOp.timestamp)
+		).toBeLessThan(1000);
+	});
+
+	it('later operation wins', async () => {
+		await handleClientOperation(cardOp1, env.D1);
+		await handleClientOperation(cardBookmarkedOp, env.D1);
+		await handleClientOperation(cardBookmarkedOp2, env.D1);
+
+		const cardBookmarked = await db.query.cardBookmarked.findFirst({
+			where: eq(schema.cardBookmarked.cardId, cardBookmarkedOp.payload.cardId),
+		});
+
+		expect(cardBookmarked).toBeDefined();
+		expect(cardBookmarked!.bookmarked).toBe(cardBookmarkedOp2.payload.bookmarked);
+		expect(cardBookmarked!.lastModifiedClient).toBe(cardBookmarkedOp2.clientId);
+		expect(
+			Math.abs(cardBookmarked!.lastModified.getTime() - cardBookmarkedOp2.timestamp)
+		).toBeLessThan(1000);
+	});
+
+	it('when same time, the higher client id wins', async () => {
+		await handleClientOperation(cardOp1, env.D1);
+		await handleClientOperation(cardBookmarkedOp, env.D1);
+		await handleClientOperation(cardBookmarkedOp3, env.D1);
+
+		const cardBookmarked = await db.query.cardBookmarked.findFirst({
+			where: eq(schema.cardBookmarked.cardId, cardBookmarkedOp.payload.cardId),
+		});
+
+		expect(cardBookmarked).toBeDefined();
+		expect(cardBookmarked!.bookmarked).toBe(cardBookmarkedOp3.payload.bookmarked);
+		expect(cardBookmarked!.lastModifiedClient).toBe(cardBookmarkedOp3.clientId);
+		expect(
+			Math.abs(cardBookmarked!.lastModified.getTime() - cardBookmarkedOp3.timestamp)
+		).toBeLessThan(1000);
+	});
+});
+
+describe('card suspended operations', () => {
+	const cardSuspendedOp: ClientToServer<CardSuspendedOperation> = {
+		type: 'cardSuspended',
+		userId: testUser.id,
+		clientId: testClientId,
+		timestamp: now,
+		payload: {
+			cardId: 'test-card-1',
+			suspended: new Date(now),
+		},
+	};
+
+	const cardSuspendedOp2: ClientToServer<CardSuspendedOperation> = {
+		type: 'cardSuspended',
+		userId: testUser.id,
+		clientId: testClientId,
+		timestamp: now + 100000,
+		payload: {
+			cardId: 'test-card-1',
+			suspended: new Date(now + 100000),
+		},
+	};
+
+	const cardSuspendedOp3: ClientToServer<CardSuspendedOperation> = {
+		type: 'cardSuspended',
+		userId: testUser.id,
+		clientId: testClientId2,
+		timestamp: now,
+		payload: {
+			cardId: 'test-card-1',
+			suspended: new Date(now + 200000),
+		},
+	};
+
+	it('should insert a new card suspended', async () => {
+		await handleClientOperation(cardOp1, env.D1);
+		await handleClientOperation(cardSuspendedOp, env.D1);
+
+		const cardSuspended = await db.query.cardSuspended.findFirst({
+			where: eq(schema.cardSuspended.cardId, cardSuspendedOp.payload.cardId),
+		});
+
+		expect(cardSuspended).toBeDefined();
+		expect(cardSuspended!.cardId).toBe(cardSuspendedOp.payload.cardId);
+		expect(cardSuspended!.suspended).toStrictEqual(cardSuspendedOp.payload.suspended);
+		expect(cardSuspended!.lastModifiedClient).toBe(cardSuspendedOp.clientId);
+		expect(
+			Math.abs(cardSuspended!.lastModified.getTime() - cardSuspendedOp.timestamp)
+		).toBeLessThan(1000);
+	});
+
+	it('later operation wins', async () => {
+		await handleClientOperation(cardOp1, env.D1);
+		await handleClientOperation(cardSuspendedOp, env.D1);
+		await handleClientOperation(cardSuspendedOp2, env.D1);
+
+		const cardSuspended = await db.query.cardSuspended.findFirst({
+			where: eq(schema.cardSuspended.cardId, cardSuspendedOp.payload.cardId),
+		});
+
+		expect(cardSuspended).toBeDefined();
+		expect(cardSuspended!.suspended).toStrictEqual(cardSuspendedOp2.payload.suspended);
+		expect(cardSuspended!.lastModifiedClient).toBe(cardSuspendedOp2.clientId);
+		expect(
+			Math.abs(cardSuspended!.lastModified.getTime() - cardSuspendedOp2.timestamp)
+		).toBeLessThan(1000);
+	});
+
+	it('when same time, the higher client id wins', async () => {
+		await handleClientOperation(cardOp1, env.D1);
+		await handleClientOperation(cardSuspendedOp, env.D1);
+		await handleClientOperation(cardSuspendedOp3, env.D1);
+
+		const cardSuspended = await db.query.cardSuspended.findFirst({
+			where: eq(schema.cardSuspended.cardId, cardSuspendedOp.payload.cardId),
+		});
+
+		expect(cardSuspended).toBeDefined();
+		expect(cardSuspended!.suspended).toStrictEqual(cardSuspendedOp3.payload.suspended);
+		expect(cardSuspended!.lastModifiedClient).toBe(cardSuspendedOp3.clientId);
+		expect(
+			Math.abs(cardSuspended!.lastModified.getTime() - cardSuspendedOp3.timestamp)
+		).toBeLessThan(1000);
 	});
 });

@@ -7,9 +7,11 @@ import { readFile } from 'fs/promises';
 import { promisify } from 'util';
 import { z } from 'zod';
 import {
+	handleCardBookmarkedOperation,
 	handleCardContentOperation,
 	handleCardDeletedOperation,
 	handleCardOperation,
+	handleCardSuspendedOperation,
 	handleDeckOperation,
 	handleUpdateDeckCardOperation,
 	opToClient2ServerOp,
@@ -87,6 +89,12 @@ async function main() {
 				break;
 			case 'updateDeckCard':
 				await handleUpdateDeckCardOperation(operation, db, seqNo);
+				break;
+			case 'cardSuspended':
+				await handleCardSuspendedOperation(operation, db, seqNo);
+				break;
+			case 'cardBookmarked':
+				await handleCardBookmarkedOperation(operation, db, seqNo);
 				break;
 			default:
 				throw new Error(`Unknown operation type: ${JSON.stringify(operation)}`);

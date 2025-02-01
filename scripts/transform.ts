@@ -7,6 +7,7 @@ import { writeFile } from 'fs/promises';
 import {
 	CardContentOperation,
 	CardDeletedOperation,
+	CardSuspendedOperation,
 	DeckOperation,
 	Operation,
 	UpdateDeckCardOperation,
@@ -72,6 +73,15 @@ async function main() {
 		timestamp: now.getTime(),
 	})) satisfies CardDeletedOperation[];
 
+	const cardSuspendedOperations = cardWithContents.map(({ cards }) => ({
+		type: 'cardSuspended',
+		payload: {
+			cardId: cards.id,
+			suspended: cards.suspended,
+		},
+		timestamp: now.getTime(),
+	})) satisfies CardSuspendedOperation[];
+
 	const decks = await oldDb.query.decks.findMany({
 		where: eq(oldSchema.decks.userId, user.id),
 	});
@@ -107,6 +117,7 @@ async function main() {
 		...cardOperations,
 		...cardContentOperations,
 		...cardDeletedOperations,
+		...cardSuspendedOperations,
 		...deckOperations,
 		...updateDeckCardOperations,
 	];

@@ -167,6 +167,67 @@ export const cardDeleted = sqliteTable(
 
 export type CardDeleted = typeof cardDeleted.$inferSelect;
 
+// We use LWW strategy for bookmarks rather than CLSet
+// because it makes more sense that the latest operation is the one that the client
+// wants to execute
+// And someone might bookmark/unbookmark a card multiple times
+// so we the incrementing counter for CLset does not best represent the intention of the user.
+export const cardBookmarked = sqliteTable(
+	'card_bookmarked',
+	{
+		cardId: text('card_id')
+			.primaryKey()
+			.references(() => cards.id),
+		bookmarked: integer('bookmarked', { mode: 'boolean' }).notNull().default(false),
+		lastModified: integer('last_modified', { mode: 'timestamp' })
+			.notNull()
+			.default(sql`(current_timestamp)`),
+		seqNo: integer('seq_no').notNull(),
+		lastModifiedClient: text('last_modified_client')
+			.notNull()
+			.references(() => clients.id),
+	},
+	(table) => [
+		index('card_bookmarked_card_id_idx').on(table.cardId),
+		index('card_bookmarked_card_id_seq_no_modified_client_idx').on(
+			table.cardId,
+			table.seqNo,
+			table.lastModifiedClient
+		),
+	]
+);
+
+export type CardBookmarked = typeof cardBookmarked.$inferSelect;
+
+export const cardSuspended = sqliteTable(
+	'card_suspended',
+	{
+		cardId: text('card_id')
+			.primaryKey()
+			.references(() => cards.id),
+		suspended: integer('suspended', { mode: 'timestamp' })
+			.notNull()
+			.default(sql`(current_timestamp)`),
+		lastModified: integer('last_modified', { mode: 'timestamp' })
+			.notNull()
+			.default(sql`(current_timestamp)`),
+		seqNo: integer('seq_no').notNull(),
+		lastModifiedClient: text('last_modified_client')
+			.notNull()
+			.references(() => clients.id),
+	},
+	(table) => [
+		index('card_suspended_card_id_idx').on(table.cardId),
+		index('card_suspended_card_id_seq_no_modified_client_idx').on(
+			table.cardId,
+			table.seqNo,
+			table.lastModifiedClient
+		),
+	]
+);
+
+export type CardSuspended = typeof cardSuspended.$inferSelect;
+
 export const decks = sqliteTable(
 	'decks',
 	{
