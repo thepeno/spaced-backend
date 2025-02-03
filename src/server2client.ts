@@ -93,6 +93,7 @@ async function getReviewLogsFromSeqNo(
 			createdAt: schema.reviewLogs.createdAt,
 		})
 		.from(schema.cards)
+		.where(eq(schema.cards.userId, userId))
 		.innerJoin(
 			schema.reviewLogs,
 			and(
@@ -141,6 +142,7 @@ async function getReviewLogDeletedFromSeqNo(
 			deleted: schema.reviewLogDeleted.deleted,
 		})
 		.from(schema.cards)
+		.where(eq(schema.cards.userId, userId))
 		.innerJoin(schema.reviewLogs, eq(schema.cards.id, schema.reviewLogs.cardId))
 		.innerJoin(
 			schema.reviewLogDeleted,
