@@ -10,6 +10,8 @@ import {
 	CardSuspendedOperation,
 	DeckOperation,
 	Operation,
+	ReviewLogDeletedOperation,
+	ReviewLogOperation,
 	UpdateDeckCardOperation,
 	type CardOperation,
 } from '../src/operation';
@@ -113,6 +115,60 @@ async function main() {
 		timestamp: now.getTime(),
 	})) satisfies UpdateDeckCardOperation[];
 
+	const reviewLogs = await oldDb
+		.select({
+			id: oldSchema.reviewLogs.id,
+			cardId: oldSchema.reviewLogs.cardId,
+			grade: oldSchema.reviewLogs.grade,
+			state: oldSchema.reviewLogs.state,
+			due: oldSchema.reviewLogs.due,
+			stability: oldSchema.reviewLogs.stability,
+			difficulty: oldSchema.reviewLogs.difficulty,
+			elapsed_days: oldSchema.reviewLogs.elapsed_days,
+			scheduled_days: oldSchema.reviewLogs.scheduled_days,
+			review: oldSchema.reviewLogs.review,
+			duration: oldSchema.reviewLogs.duration,
+			createdAt: oldSchema.reviewLogs.createdAt,
+			deleted: oldSchema.reviewLogs.deleted,
+		})
+		.from(oldSchema.cards)
+		.innerJoin(oldSchema.reviewLogs, eq(oldSchema.cards.id, oldSchema.reviewLogs.cardId))
+		.where(eq(oldSchema.cards.userId, user.id));
+
+	const reviewLogOperations = reviewLogs.map((reviewLog) => ({
+		type: 'reviewLog',
+		payload: {
+			id: reviewLog.id,
+			cardId: reviewLog.cardId,
+
+			grade: reviewLog.grade,
+			state: reviewLog.state,
+
+			due: reviewLog.due,
+			stability: reviewLog.stability,
+			difficulty: reviewLog.difficulty,
+			elapsed_days: reviewLog.elapsed_days,
+			last_elapsed_days: reviewLog.elapsed_days,
+			scheduled_days: reviewLog.scheduled_days,
+			review: reviewLog.review,
+			duration: reviewLog.duration,
+
+			createdAt: reviewLog.createdAt,
+		},
+		timestamp: now.getTime(),
+	})) satisfies ReviewLogOperation[];
+
+	const reviewLogDeletedOperations = reviewLogs
+		.filter((reviewLog) => reviewLog.deleted)
+		.map((reviewLog) => ({
+			type: 'reviewLogDeleted',
+			payload: {
+				reviewLogId: reviewLog.id,
+				deleted: true,
+			},
+			timestamp: now.getTime(),
+		})) satisfies ReviewLogDeletedOperation[];
+
 	const allOperations: Operation[] = [
 		...cardOperations,
 		...cardContentOperations,
@@ -120,6 +176,8 @@ async function main() {
 		...cardSuspendedOperations,
 		...deckOperations,
 		...updateDeckCardOperations,
+		...reviewLogOperations,
+		...reviewLogDeletedOperations,
 	];
 
 	await writeFile(process.env.OUTPUT_PATH!, JSON.stringify(allOperations, null, 2));

@@ -105,6 +105,19 @@ export const DEFAULT_CARD_VARS = {
 	last_review: null,
 } as const;
 
+export const DEFAULT_REVIEW_LOG_VARS = {
+	grade: 'Easy',
+	state: 'New',
+	due: new Date(now),
+	stability: 0.5,
+	difficulty: 0.5,
+	elapsed_days: 0,
+	last_elapsed_days: 0,
+	scheduled_days: 0,
+	review: new Date(now),
+	duration: 0,
+} as const;
+
 export async function createTestCardsTestUser1(): Promise<void> {
 	await handleClientOperation(
 		{

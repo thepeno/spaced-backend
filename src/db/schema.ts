@@ -13,6 +13,9 @@ import {
 export const states = ['New', 'Learning', 'Review', 'Relearning'] as const;
 export type State = (typeof states)[number];
 
+export const ratings = ['Manual', 'Easy', 'Good', 'Hard', 'Again'] as const;
+export type Rating = (typeof ratings)[number];
+
 export const users = sqliteTable(
 	'users',
 	{
@@ -111,6 +114,70 @@ export const cards = sqliteTable(
 
 export type Card = typeof cards.$inferSelect;
 export type NewCard = typeof cards.$inferInsert;
+
+export const reviewLogs = sqliteTable(
+	'review_logs',
+	{
+		id: text('id').primaryKey(),
+		cardId: text('card_id').notNull(),
+		seqNo: integer('seq_no').notNull(),
+		lastModifiedClient: text('last_modified_client')
+			.notNull()
+			.references(() => clients.id),
+
+		grade: text('grade', { enum: ratings }).notNull(),
+		state: text('state', { enum: states }).notNull(),
+
+		due: integer('due', { mode: 'timestamp' }).notNull(),
+		stability: real('stability').notNull(),
+		difficulty: real('difficulty').notNull(),
+		elapsed_days: integer('elapsed_days').notNull(),
+		last_elapsed_days: integer('last_elapsed_days').notNull(),
+		scheduled_days: integer('scheduled_days').notNull(),
+		review: integer('review', { mode: 'timestamp' }).notNull(),
+		duration: integer('duration').notNull().default(0),
+
+		createdAt: integer('created_at', { mode: 'timestamp' })
+			.notNull()
+			.default(sql`(unixepoch())`),
+	},
+	(table) => [
+		index('review_logs_card_id_idx').on(table.cardId),
+		index('review_logs_card_id_seq_no_modified_client_idx').on(
+			table.cardId,
+			table.seqNo,
+			table.lastModifiedClient
+		),
+	]
+);
+
+export type ReviewLog = typeof reviewLogs.$inferSelect;
+
+export const reviewLogDeleted = sqliteTable(
+	'review_log_deleted',
+	{
+		reviewLogId: text('review_log_id')
+			.primaryKey()
+			.references(() => reviewLogs.id),
+		deleted: integer('deleted', { mode: 'boolean' }).notNull().default(false),
+		lastModified: integer('last_modified', { mode: 'timestamp' })
+			.notNull()
+			.default(sql`(current_timestamp)`),
+		seqNo: integer('seq_no').notNull(),
+		lastModifiedClient: text('last_modified_client')
+			.notNull()
+			.references(() => clients.id),
+	},
+	(table) => [
+		index('review_log_deleted_review_log_id_idx').on(table.reviewLogId),
+		index('review_log_deleted_review_log_id_seq_no_modified_client_idx').on(
+			table.reviewLogId,
+			table.seqNo,
+			table.lastModifiedClient
+		),
+	]
+);
+export type ReviewLogDeleted = typeof reviewLogDeleted.$inferSelect;
 
 export const cardContents = sqliteTable(
 	'card_contents',
@@ -316,13 +383,31 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
 	}),
 }));
 
-export const cardsRelations = relations(cards, ({ one }) => ({
+export const cardsRelations = relations(cards, ({ one, many }) => ({
 	user: one(users, {
 		fields: [cards.userId],
 		references: [users.id],
 	}),
 	cardContents: one(cardContents),
 	cardDeleted: one(cardDeleted),
+	cardBookmarked: one(cardBookmarked),
+	cardSuspended: one(cardSuspended),
+	cardDecks: many(cardDecks),
+	reviewLogs: many(reviewLogs),
+}));
+
+export const reviewLogsRelations = relations(reviewLogs, ({ one }) => ({
+	card: one(cards, {
+		fields: [reviewLogs.cardId],
+		references: [cards.id],
+	}),
+}));
+
+export const reviewLogDeletedRelations = relations(reviewLogDeleted, ({ one }) => ({
+	reviewLog: one(reviewLogs, {
+		fields: [reviewLogDeleted.reviewLogId],
+		references: [reviewLogs.id],
+	}),
 }));
 
 export const cardContentsRelations = relations(cardContents, ({ one }) => ({
@@ -335,6 +420,20 @@ export const cardContentsRelations = relations(cardContents, ({ one }) => ({
 export const cardDeletedRelations = relations(cardDeleted, ({ one }) => ({
 	card: one(cards, {
 		fields: [cardDeleted.cardId],
+		references: [cards.id],
+	}),
+}));
+
+export const cardBookmarkedRelations = relations(cardBookmarked, ({ one }) => ({
+	card: one(cards, {
+		fields: [cardBookmarked.cardId],
+		references: [cards.id],
+	}),
+}));
+
+export const cardSuspendedRelations = relations(cardSuspended, ({ one }) => ({
+	card: one(cards, {
+		fields: [cardSuspended.cardId],
 		references: [cards.id],
 	}),
 }));

@@ -8,6 +8,8 @@ import {
 	CardSuspendedOperation,
 	DeckOperation,
 	Operation,
+	ReviewLogDeletedOperation,
+	ReviewLogOperation,
 	UpdateDeckCardOperation,
 } from '@/operation';
 import { sql } from 'drizzle-orm';
@@ -94,6 +96,80 @@ export async function handleCardOperation(
 		excluded.last_modified > ${schema.cards.lastModified}
 		OR (excluded.last_modified = ${schema.cards.lastModified}
 			AND excluded.last_modified_client > ${schema.cards.lastModifiedClient})
+		`,
+		});
+}
+
+// Review log operation is modelled as a grow-only set.
+// The client generates a unique ID for each review log that comes in.
+// The review logs are only ever inserted to the table, never removed.
+// This presreves the semantics for "past reviews" that we want to store.
+// For LWW - if client A updates, client B updates later, we want client B to win.
+// But for review logs, we want to know that both client A and client B did reviews
+// such that we can display these statistics later on.
+export async function handleReviewLogOperation(
+	op: ClientToServer<ReviewLogOperation>,
+	db: DB,
+	seqNo: number
+) {
+	// on conflict, just do nothing to ensure idempotency in this grow-only set
+	await db
+		.insert(schema.reviewLogs)
+		.values({
+			id: op.payload.id,
+			cardId: op.payload.cardId,
+			seqNo,
+			lastModifiedClient: op.clientId,
+
+			grade: op.payload.grade,
+			state: op.payload.state,
+
+			due: op.payload.due,
+			stability: op.payload.stability,
+			difficulty: op.payload.difficulty,
+			elapsed_days: op.payload.elapsed_days,
+			last_elapsed_days: op.payload.last_elapsed_days,
+			scheduled_days: op.payload.scheduled_days,
+			review: op.payload.review,
+			duration: op.payload.duration,
+
+			createdAt: new Date(op.timestamp),
+		})
+		.onConflictDoNothing({
+			target: [schema.reviewLogs.id],
+		});
+}
+
+// Just a regular LWW register
+// This allows us to implement "undo" operations for reviews
+// as the "undo" just marks the review log as deleted.
+// as we can just filter out the review logs that have been deleted.
+export async function handleReviewLogDeletedOperation(
+	op: ClientToServer<ReviewLogDeletedOperation>,
+	db: DB,
+	seqNo: number
+) {
+	await db
+		.insert(schema.reviewLogDeleted)
+		.values({
+			reviewLogId: op.payload.reviewLogId,
+			deleted: op.payload.deleted,
+			lastModified: new Date(op.timestamp),
+			lastModifiedClient: op.clientId,
+			seqNo,
+		})
+		.onConflictDoUpdate({
+			target: [schema.reviewLogDeleted.reviewLogId],
+			set: {
+				deleted: op.payload.deleted,
+				lastModified: new Date(op.timestamp),
+				lastModifiedClient: op.clientId,
+				seqNo,
+			},
+			setWhere: sql`
+		excluded.last_modified > ${schema.reviewLogDeleted.lastModified}
+		OR (excluded.last_modified = ${schema.reviewLogDeleted.lastModified}
+			AND excluded.last_modified_client > ${schema.reviewLogDeleted.lastModifiedClient})
 		`,
 		});
 }
@@ -295,6 +371,10 @@ export async function handleClientOperation(op: ClientToServer<Operation>, db: D
 	switch (op.type) {
 		case 'card':
 			return handleCardOperation(op, drizzleDb, seqNo);
+		case 'reviewLog':
+			return handleReviewLogOperation(op, drizzleDb, seqNo);
+		case 'reviewLogDeleted':
+			return handleReviewLogDeletedOperation(op, drizzleDb, seqNo);
 		case 'cardContent':
 			return handleCardContentOperation(op, drizzleDb, seqNo);
 		case 'cardDeleted':

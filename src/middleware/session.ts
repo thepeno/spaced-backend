@@ -2,6 +2,7 @@ import { getSession, SESSION_COOKIE_NAME } from '@/auth';
 import * as schema from '@/db/schema';
 import logger from '@/logger';
 import { drizzle } from 'drizzle-orm/d1';
+import { cache } from 'hono/cache';
 import { getSignedCookie } from 'hono/cookie';
 import { createMiddleware } from 'hono/factory';
 
@@ -43,5 +44,8 @@ export const sessionMiddleware = createMiddleware<{
 	c.set('userId', session.session.userId);
 	logger.info({ sid, userId: session.session.userId }, 'Session middleware successful');
 
-	await next();
+	await cache({
+		cacheControl: 'no-store, private, no-cache, revalidate',
+		cacheName: 'session',
+	})(c, next);
 });

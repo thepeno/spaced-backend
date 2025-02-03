@@ -132,4 +132,37 @@ CREATE TABLE \`card_suspended\` (
 --> statement-breakpoint
 CREATE INDEX \`card_suspended_card_id_idx\` ON \`card_suspended\` (\`card_id\`);--> statement-breakpoint
 CREATE INDEX \`card_suspended_card_id_seq_no_modified_client_idx\` ON \`card_suspended\` (\`card_id\`,\`seq_no\`,\`last_modified_client\`);;
+CREATE TABLE \`review_log_deleted\` (
+	\`review_log_id\` text PRIMARY KEY NOT NULL,
+	\`deleted\` integer DEFAULT false NOT NULL,
+	\`last_modified\` integer DEFAULT (current_timestamp) NOT NULL,
+	\`seq_no\` integer NOT NULL,
+	\`last_modified_client\` text NOT NULL,
+	FOREIGN KEY (\`review_log_id\`) REFERENCES \`review_logs\`(\`id\`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (\`last_modified_client\`) REFERENCES \`clients\`(\`id\`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE INDEX \`review_log_deleted_review_log_id_idx\` ON \`review_log_deleted\` (\`review_log_id\`);--> statement-breakpoint
+CREATE INDEX \`review_log_deleted_review_log_id_seq_no_modified_client_idx\` ON \`review_log_deleted\` (\`review_log_id\`,\`seq_no\`,\`last_modified_client\`);--> statement-breakpoint
+CREATE TABLE \`review_logs\` (
+	\`id\` text PRIMARY KEY NOT NULL,
+	\`card_id\` text NOT NULL,
+	\`seq_no\` integer NOT NULL,
+	\`last_modified_client\` text NOT NULL,
+	\`grade\` text NOT NULL,
+	\`state\` text NOT NULL,
+	\`due\` integer NOT NULL,
+	\`stability\` real NOT NULL,
+	\`difficulty\` real NOT NULL,
+	\`elapsed_days\` integer NOT NULL,
+	\`last_elapsed_days\` integer NOT NULL,
+	\`scheduled_days\` integer NOT NULL,
+	\`review\` integer NOT NULL,
+	\`duration\` integer DEFAULT 0 NOT NULL,
+	\`created_at\` integer DEFAULT (unixepoch()) NOT NULL,
+	FOREIGN KEY (\`last_modified_client\`) REFERENCES \`clients\`(\`id\`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE INDEX \`review_logs_card_id_idx\` ON \`review_logs\` (\`card_id\`);--> statement-breakpoint
+CREATE INDEX \`review_logs_card_id_seq_no_modified_client_idx\` ON \`review_logs\` (\`card_id\`,\`seq_no\`,\`last_modified_client\`);;
 `;

@@ -8,6 +8,8 @@ import {
 	CardOperation,
 	CardSuspendedOperation,
 	DeckOperation,
+	ReviewLogDeletedOperation,
+	ReviewLogOperation,
 	UpdateDeckCardOperation,
 } from '@/operation';
 import { env } from 'cloudflare:test';
@@ -16,6 +18,7 @@ import { drizzle } from 'drizzle-orm/d1';
 import {
 	createTestUsers,
 	DEFAULT_CARD_VARS,
+	DEFAULT_REVIEW_LOG_VARS,
 	testClientId,
 	testClientId2,
 	testUser,
@@ -662,5 +665,131 @@ describe('card suspended operations', () => {
 		expect(
 			Math.abs(cardSuspended!.lastModified.getTime() - cardSuspendedOp3.timestamp)
 		).toBeLessThan(1000);
+	});
+});
+
+const reviewLogOp: ClientToServer<ReviewLogOperation> = {
+	type: 'reviewLog',
+	userId: testUser.id,
+	clientId: testClientId,
+	timestamp: now,
+	payload: {
+		id: 'test-review-log-1',
+		cardId: 'test-card-1',
+		...DEFAULT_REVIEW_LOG_VARS,
+		createdAt: new Date(now),
+	},
+};
+describe('review log operations', () => {
+	it('should insert a new review log', async () => {
+		await handleClientOperation(cardOp1, env.D1);
+		await handleClientOperation(reviewLogOp, env.D1);
+
+		const reviewLog = await db.query.reviewLogs.findFirst({
+			where: eq(schema.reviewLogs.id, reviewLogOp.payload.id),
+		});
+
+		expect(reviewLog).toBeDefined();
+		expect(reviewLog!.id).toBe(reviewLogOp.payload.id);
+		expect(reviewLog!.cardId).toBe(reviewLogOp.payload.cardId);
+		expect(reviewLog!.createdAt).toStrictEqual(reviewLogOp.payload.createdAt);
+	});
+
+	it('operation should be idempotent', async () => {
+		await handleClientOperation(cardOp1, env.D1);
+		await handleClientOperation(reviewLogOp, env.D1);
+		await handleClientOperation(
+			{
+				...reviewLogOp,
+				payload: {
+					...reviewLogOp.payload,
+					createdAt: new Date(now + 100000),
+				},
+				timestamp: now + 1000000,
+			},
+			env.D1
+		);
+
+		const reviewLog = await db.query.reviewLogs.findFirst({
+			where: eq(schema.reviewLogs.id, reviewLogOp.payload.id),
+		});
+
+		expect(reviewLog).toBeDefined();
+		expect(reviewLog!.createdAt).toStrictEqual(reviewLogOp.payload.createdAt);
+	});
+});
+
+describe('review log deleted operations', () => {
+	const reviewLogDeletedOp: ClientToServer<ReviewLogDeletedOperation> = {
+		type: 'reviewLogDeleted',
+		userId: testUser.id,
+		clientId: testClientId,
+		timestamp: now,
+		payload: {
+			reviewLogId: 'test-review-log-1',
+			deleted: true,
+		},
+	};
+
+	const reviewLogDeletedOp2: ClientToServer<ReviewLogDeletedOperation> = {
+		type: 'reviewLogDeleted',
+		userId: testUser.id,
+		clientId: testClientId,
+		timestamp: now + 100000,
+		payload: {
+			reviewLogId: 'test-review-log-1',
+			deleted: false,
+		},
+	};
+
+	const reviewLogDeletedOp3: ClientToServer<ReviewLogDeletedOperation> = {
+		type: 'reviewLogDeleted',
+		userId: testUser.id,
+		clientId: testClientId2,
+		timestamp: now,
+		payload: {
+			reviewLogId: 'test-review-log-1',
+			deleted: false,
+		},
+	};
+
+	it('should insert a new review log deleted', async () => {
+		await handleClientOperation(cardOp1, env.D1);
+		await handleClientOperation(reviewLogOp, env.D1);
+		await handleClientOperation(reviewLogDeletedOp, env.D1);
+
+		const reviewLogDeleted = await db.query.reviewLogDeleted.findFirst({
+			where: eq(schema.reviewLogDeleted.reviewLogId, reviewLogDeletedOp.payload.reviewLogId),
+		});
+
+		expect(reviewLogDeleted).toBeDefined();
+		expect(reviewLogDeleted!.reviewLogId).toBe(reviewLogDeletedOp.payload.reviewLogId);
+		expect(reviewLogDeleted!.deleted).toBe(reviewLogDeletedOp.payload.deleted);
+	});
+
+	it('later operation wins', async () => {
+		await handleClientOperation(cardOp1, env.D1);
+		await handleClientOperation(reviewLogOp, env.D1);
+		await handleClientOperation(reviewLogDeletedOp2, env.D1);
+
+		const reviewLogDeleted = await db.query.reviewLogDeleted.findFirst({
+			where: eq(schema.reviewLogDeleted.reviewLogId, reviewLogDeletedOp.payload.reviewLogId),
+		});
+
+		expect(reviewLogDeleted).toBeDefined();
+		expect(reviewLogDeleted!.deleted).toBe(reviewLogDeletedOp2.payload.deleted);
+	});
+
+	it('when same time, the higher client id wins', async () => {
+		await handleClientOperation(cardOp1, env.D1);
+		await handleClientOperation(reviewLogOp, env.D1);
+		await handleClientOperation(reviewLogDeletedOp3, env.D1);
+
+		const reviewLogDeleted = await db.query.reviewLogDeleted.findFirst({
+			where: eq(schema.reviewLogDeleted.reviewLogId, reviewLogDeletedOp.payload.reviewLogId),
+		});
+
+		expect(reviewLogDeleted).toBeDefined();
+		expect(reviewLogDeleted!.deleted).toBe(reviewLogDeletedOp3.payload.deleted);
 	});
 });

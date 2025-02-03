@@ -28,6 +28,50 @@ export const cardOperationSchema = z.object({
 	timestamp: z.number(),
 }) satisfies z.ZodType<CardOperation>;
 
+export type ReviewLogOperation = {
+	type: 'reviewLog';
+	payload: StripMetadata<schema.ReviewLog>;
+	timestamp: number;
+};
+
+export const reviewLogOperationSchema = z.object({
+	type: z.literal('reviewLog'),
+	payload: z.object({
+		id: z.string(),
+		cardId: z.string(),
+
+		grade: z.enum(schema.ratings),
+		state: z.enum(schema.states),
+
+		due: z.coerce.date(),
+		stability: z.number(),
+		difficulty: z.number(),
+		elapsed_days: z.number(),
+		last_elapsed_days: z.number(),
+		scheduled_days: z.number(),
+		review: z.coerce.date(),
+		duration: z.number(),
+
+		createdAt: z.coerce.date(),
+	}),
+	timestamp: z.number(),
+}) satisfies z.ZodType<ReviewLogOperation>;
+
+export type ReviewLogDeletedOperation = {
+	type: 'reviewLogDeleted';
+	payload: StripMetadata<schema.ReviewLogDeleted>;
+	timestamp: number;
+};
+
+export const reviewLogDeletedOperationSchema = z.object({
+	type: z.literal('reviewLogDeleted'),
+	payload: z.object({
+		reviewLogId: z.string(),
+		deleted: z.boolean(),
+	}),
+	timestamp: z.number(),
+}) satisfies z.ZodType<ReviewLogDeletedOperation>;
+
 export type CardContentOperation = {
 	type: 'cardContent';
 	payload: StripMetadata<schema.CardContent>;
@@ -124,6 +168,8 @@ export const updateDeckCardOperationSchema = z.object({
 
 export type Operation =
 	| CardOperation
+	| ReviewLogOperation
+	| ReviewLogDeletedOperation
 	| CardContentOperation
 	| CardDeletedOperation
 	| CardBookmarkedOperation
@@ -133,6 +179,8 @@ export type Operation =
 
 export const operationSchema = z.union([
 	cardOperationSchema,
+	reviewLogOperationSchema,
+	reviewLogDeletedOperationSchema,
 	cardContentOperationSchema,
 	cardDeletedOperationSchema,
 	cardBookmarkedOperationSchema,

@@ -8,6 +8,8 @@ import {
 	CardSuspendedOperation,
 	DeckOperation,
 	Operation,
+	ReviewLogDeletedOperation,
+	ReviewLogOperation,
 	UpdateDeckCardOperation,
 } from '@/operation';
 import { and, eq, gt, ne } from 'drizzle-orm';
@@ -60,6 +62,102 @@ async function getCardsFromSeqNo(
 			lapses: card.lapses,
 			state: card.state,
 			last_review: card.last_review,
+		},
+	}));
+}
+
+async function getReviewLogsFromSeqNo(
+	db: DB,
+	userId: string,
+	requestingClientId: string,
+	seqNo: number
+): Promise<ServerToClient<ReviewLogOperation>[]> {
+	const reviewLogs = await db
+		.select({
+			id: schema.reviewLogs.id,
+			cardId: schema.reviewLogs.cardId,
+			seqNo: schema.reviewLogs.seqNo,
+
+			grade: schema.reviewLogs.grade,
+			state: schema.reviewLogs.state,
+
+			due: schema.reviewLogs.due,
+			stability: schema.reviewLogs.stability,
+			difficulty: schema.reviewLogs.difficulty,
+			elapsed_days: schema.reviewLogs.elapsed_days,
+			last_elapsed_days: schema.reviewLogs.last_elapsed_days,
+			scheduled_days: schema.reviewLogs.scheduled_days,
+			review: schema.reviewLogs.review,
+			duration: schema.reviewLogs.duration,
+
+			createdAt: schema.reviewLogs.createdAt,
+		})
+		.from(schema.cards)
+		.innerJoin(
+			schema.reviewLogs,
+			and(
+				eq(schema.cards.id, schema.reviewLogs.cardId),
+				gt(schema.reviewLogs.seqNo, seqNo),
+				ne(schema.reviewLogs.lastModifiedClient, requestingClientId)
+			)
+		);
+
+	return reviewLogs.map((reviewLog) => ({
+		type: 'reviewLog',
+		seqNo: reviewLog.seqNo,
+		timestamp: reviewLog.createdAt.getTime(),
+		payload: {
+			id: reviewLog.id,
+			cardId: reviewLog.cardId,
+
+			grade: reviewLog.grade,
+			state: reviewLog.state,
+
+			due: reviewLog.due,
+			stability: reviewLog.stability,
+			difficulty: reviewLog.difficulty,
+			elapsed_days: reviewLog.elapsed_days,
+			last_elapsed_days: reviewLog.last_elapsed_days,
+			scheduled_days: reviewLog.scheduled_days,
+			review: reviewLog.review,
+			duration: reviewLog.duration,
+
+			createdAt: reviewLog.createdAt,
+		},
+	}));
+}
+
+async function getReviewLogDeletedFromSeqNo(
+	db: DB,
+	userId: string,
+	requestingClientId: string,
+	seqNo: number
+): Promise<ServerToClient<ReviewLogDeletedOperation>[]> {
+	const reviewLogDeleted = await db
+		.select({
+			seqNo: schema.reviewLogDeleted.seqNo,
+			lastModified: schema.reviewLogDeleted.lastModified,
+			reviewLogId: schema.reviewLogDeleted.reviewLogId,
+			deleted: schema.reviewLogDeleted.deleted,
+		})
+		.from(schema.cards)
+		.innerJoin(schema.reviewLogs, eq(schema.cards.id, schema.reviewLogs.cardId))
+		.innerJoin(
+			schema.reviewLogDeleted,
+			and(
+				eq(schema.reviewLogs.id, schema.reviewLogDeleted.reviewLogId),
+				gt(schema.reviewLogDeleted.seqNo, seqNo),
+				ne(schema.reviewLogDeleted.lastModifiedClient, requestingClientId)
+			)
+		);
+
+	return reviewLogDeleted.map((reviewLogDeleted) => ({
+		type: 'reviewLogDeleted',
+		seqNo: reviewLogDeleted.seqNo,
+		timestamp: reviewLogDeleted.lastModified.getTime(),
+		payload: {
+			reviewLogId: reviewLogDeleted.reviewLogId,
+			deleted: reviewLogDeleted.deleted,
 		},
 	}));
 }
@@ -296,6 +394,8 @@ export async function getAllOpsFromSeqNoExclClient(
 ): Promise<ServerToClient<Operation>[]> {
 	const operations = await Promise.all([
 		getCardsFromSeqNo(db, userId, requestingClientId, seqNo),
+		getReviewLogsFromSeqNo(db, userId, requestingClientId, seqNo),
+		getReviewLogDeletedFromSeqNo(db, userId, requestingClientId, seqNo),
 		getCardContentFromSeqNo(db, userId, requestingClientId, seqNo),
 		getCardDeletedFromSeqNo(db, userId, requestingClientId, seqNo),
 		getCardBookmarkedFromSeqNo(db, userId, requestingClientId, seqNo),

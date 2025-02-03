@@ -13,6 +13,8 @@ import {
 	handleCardOperation,
 	handleCardSuspendedOperation,
 	handleDeckOperation,
+	handleReviewLogDeletedOperation,
+	handleReviewLogOperation,
 	handleUpdateDeckCardOperation,
 	opToClient2ServerOp,
 } from '../src/client2server';
@@ -95,6 +97,12 @@ async function main() {
 				break;
 			case 'cardBookmarked':
 				await handleCardBookmarkedOperation(operation, db, seqNo);
+				break;
+			case 'reviewLog':
+				await handleReviewLogOperation(operation, db, seqNo);
+				break;
+			case 'reviewLogDeleted':
+				await handleReviewLogDeletedOperation(operation, db, seqNo);
 				break;
 			default:
 				throw new Error(`Unknown operation type: ${JSON.stringify(operation)}`);
