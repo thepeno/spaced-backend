@@ -39,6 +39,30 @@ describe('auth', () => {
 			});
 		});
 
+		it('returns error if password is too short', async () => {
+			const response = await SELF.fetch('http://localhost:3000/register', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ email: 'test@example.com', password: 'short' }),
+			});
+
+			expect(response.status).toBe(400);
+		});
+
+		it('returns error if password is too long', async () => {
+			const response = await SELF.fetch('http://localhost:3000/register', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ email: 'test@example.com', password: 'a'.repeat(129) }),
+			});
+
+			expect(response.status).toBe(400);
+		});
+
 		it('returns error if user already exists', async () => {
 			const response = await SELF.fetch('http://localhost:3000/register', {
 				method: 'POST',
