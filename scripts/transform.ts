@@ -1,7 +1,7 @@
 // This script is used to transform the data from the old version of spaced
 // into the new version.
 import dotenv from 'dotenv';
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/libsql';
 import { writeFile } from 'fs/promises';
 import {
@@ -21,6 +21,98 @@ dotenv.config({ path: './scripts/.env.old' });
 const oldDb = drizzle(`file:${process.env.DB_PATH}`, {
 	schema: oldSchema,
 });
+
+const INACTIVITY_THRESHOLD_MS = 2 * 60 * 1000; // 2 minutes in milliseconds
+
+async function transformReviewLogs(userId: string) {
+	const reviewLogs = await oldDb
+		.select({
+			id: oldSchema.reviewLogs.id,
+			cardId: oldSchema.reviewLogs.cardId,
+			grade: oldSchema.reviewLogs.grade,
+			state: oldSchema.reviewLogs.state,
+			due: oldSchema.reviewLogs.due,
+			stability: oldSchema.reviewLogs.stability,
+			difficulty: oldSchema.reviewLogs.difficulty,
+			elapsed_days: oldSchema.reviewLogs.elapsed_days,
+			scheduled_days: oldSchema.reviewLogs.scheduled_days,
+			review: oldSchema.reviewLogs.review,
+			duration: oldSchema.reviewLogs.duration,
+			createdAt: oldSchema.reviewLogs.createdAt,
+			deleted: oldSchema.reviewLogs.deleted,
+		})
+		.from(oldSchema.cards)
+		.innerJoin(oldSchema.reviewLogs, eq(oldSchema.cards.id, oldSchema.reviewLogs.cardId))
+		.where(eq(oldSchema.cards.userId, userId))
+		.orderBy(asc(oldSchema.reviewLogs.review));
+
+	// Split into runs based on 2 min threshold
+	const runs: (typeof reviewLogs)[] = [];
+	let currentRun: typeof reviewLogs = [];
+
+	for (let i = 0; i < reviewLogs.length; i++) {
+		const current = reviewLogs[i];
+		const prev = reviewLogs[i - 1];
+
+		if (
+			!prev ||
+			new Date(current.review).getTime() - new Date(prev.review).getTime() > INACTIVITY_THRESHOLD_MS
+		) {
+			if (currentRun.length > 0) {
+				runs.push(currentRun);
+			}
+			currentRun = [current];
+		} else {
+			currentRun.push(current);
+		}
+	}
+
+	if (currentRun.length > 0) {
+		runs.push(currentRun);
+	}
+
+	const runsOfLength1: (typeof reviewLogs)[] = runs.filter((run) => run.length === 1);
+	const runsLongerThan1: (typeof reviewLogs)[] = runs.filter((run) => run.length > 1);
+	const processedRuns: (typeof reviewLogs)[] = [];
+
+	for (const run of runsLongerThan1) {
+		const durations = [0];
+		for (let i = 1; i < run.length; i++) {
+			const current = run[i];
+			const prev = run[i - 1];
+
+			const gap = new Date(current.review).getTime() - new Date(prev.review).getTime();
+			durations.push(gap);
+		}
+
+		const totalDuration = durations.reduce((a, b) => a + b, 0);
+		const averageDurationWithoutFirst = Math.round(totalDuration / (durations.length - 1));
+		durations[0] = averageDurationWithoutFirst;
+
+		processedRuns.push(
+			run.map((log, index) => ({
+				...log,
+				duration: durations[index],
+			}))
+		);
+	}
+	const globalAverageDuration = Math.round(
+		processedRuns.flat().reduce((a, b) => a + b.duration, 0) / processedRuns.flat().length
+	);
+	for (const run of runsOfLength1) {
+		processedRuns.push(
+			run.map((log) => ({
+				...log,
+				duration: globalAverageDuration,
+			}))
+		);
+	}
+
+	return processedRuns.flat().map((log) => ({
+		...log,
+		duration: log.duration || globalAverageDuration,
+	}));
+}
 
 const now = new Date();
 
@@ -115,26 +207,7 @@ async function main() {
 		timestamp: now.getTime(),
 	})) satisfies UpdateDeckCardOperation[];
 
-	const reviewLogs = await oldDb
-		.select({
-			id: oldSchema.reviewLogs.id,
-			cardId: oldSchema.reviewLogs.cardId,
-			grade: oldSchema.reviewLogs.grade,
-			state: oldSchema.reviewLogs.state,
-			due: oldSchema.reviewLogs.due,
-			stability: oldSchema.reviewLogs.stability,
-			difficulty: oldSchema.reviewLogs.difficulty,
-			elapsed_days: oldSchema.reviewLogs.elapsed_days,
-			scheduled_days: oldSchema.reviewLogs.scheduled_days,
-			review: oldSchema.reviewLogs.review,
-			duration: oldSchema.reviewLogs.duration,
-			createdAt: oldSchema.reviewLogs.createdAt,
-			deleted: oldSchema.reviewLogs.deleted,
-		})
-		.from(oldSchema.cards)
-		.innerJoin(oldSchema.reviewLogs, eq(oldSchema.cards.id, oldSchema.reviewLogs.cardId))
-		.where(eq(oldSchema.cards.userId, user.id));
-
+	const reviewLogs = await transformReviewLogs(user.id);
 	const reviewLogOperations = reviewLogs.map((reviewLog) => ({
 		type: 'reviewLog',
 		payload: {
