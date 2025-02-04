@@ -24,6 +24,9 @@ export const users = sqliteTable(
 			.notNull()
 			.default(sql`(current_timestamp)`),
 		email: text('email').notNull(),
+		imageUrl: text('image_url'),
+		displayName: text('display_name'),
+
 		// TODO: implement verification for registering email
 		isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
 		passwordHash: text('password_hash').notNull(),
@@ -39,6 +42,30 @@ export const users = sqliteTable(
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+
+export const oauthProviders = ['google'] as const;
+export type OAuthProvider = (typeof oauthProviders)[number];
+
+export const oauthAccounts = sqliteTable(
+	'oauth_accounts',
+	{
+		id: text('id').primaryKey(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id),
+		provider: text('provider', { enum: oauthProviders }).notNull(),
+		providerUserId: text('provider_user_id').notNull(),
+		createdAt: integer('created_at', { mode: 'timestamp' })
+			.notNull()
+			.default(sql`(current_timestamp)`),
+	},
+	(table) => [
+		unique('oauth_accounts_provider_provider_user_id_idx').on(table.provider, table.providerUserId),
+	]
+);
+
+export type OAuthAccount = typeof oauthAccounts.$inferSelect;
+export type NewOAuthAccount = typeof oauthAccounts.$inferInsert;
 
 export const sessions = sqliteTable(
 	'sessions',
@@ -367,6 +394,14 @@ export const usersRelations = relations(users, ({ many }) => ({
 	clients: many(clients),
 	cards: many(cards),
 	decks: many(decks),
+	oauthAccounts: many(oauthAccounts),
+}));
+
+export const oauthAccountsRelations = relations(oauthAccounts, ({ one }) => ({
+	user: one(users, {
+		fields: [oauthAccounts.userId],
+		references: [users.id],
+	}),
 }));
 
 export const clientsRelations = relations(clients, ({ one }) => ({
