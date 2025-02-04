@@ -208,6 +208,55 @@ app.post('/clientId', sessionMiddleware, async (c) => {
 	});
 });
 
+app.post('/auth/google', async (c) => {
+	const formData = await c.req.formData();
+	const credential = formData.get('credential')?.toString();
+
+	if (!credential) {
+		return c.json({
+			success: false,
+		});
+	}
+
+	const payload = await extractGooglePayload(
+		credential,
+		'421029814925-ogt7pqsgo2j7f1bnjajk02aiasrcrf2f.apps.googleusercontent.com'
+	);
+
+	const db = drizzle(c.env.D1, {
+		schema,
+	});
+
+	const createOrSignInGoogleUserResult = await createOrSignInGoogleUser(db, payload);
+
+	if (!createOrSignInGoogleUserResult.success) {
+		return c.json({
+			success: false,
+		});
+	}
+
+	const createSessionResult = await createSession(db, createOrSignInGoogleUserResult.user.id);
+
+	if (!createSessionResult.success) {
+		return c.json({
+			success: false,
+		});
+	}
+
+	const cookieOptions = c.env.WORKER_ENV === 'local' ? devCookieOptions : prodCookieOptions;
+	setSignedCookie(
+		c,
+		SESSION_COOKIE_NAME,
+		createSessionResult.session,
+		c.env.COOKIE_SECRET,
+		cookieOptions
+	);
+
+	const clientId = await createClientId(drizzle(c.env.D1), createOrSignInGoogleUserResult.user.id);
+
+	return c.redirect(`http://localhost:5173/login-success?clientId=${clientId}`);
+});
+
 // The simple version of  this is to execute all requests in sequence
 // and only return when the requests are all done.
 // TODO: error handling with exponential backoff for each client request

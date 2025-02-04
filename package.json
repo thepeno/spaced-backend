@@ -28,7 +28,9 @@
   "dependencies": {
     "@hono/zod-validator": "^0.4.2",
     "drizzle-orm": "^0.38.4",
+    "google-auth-library": "^9.15.1",
     "hono": "^4.6.18",
+    "jose": "^5.9.6",
     "nanoid": "^5.0.9",
     "pino": "^9.6.0",
     "vite-tsconfig-paths": "^5.1.4",
