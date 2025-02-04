@@ -1,5 +1,6 @@
 import { relations, sql } from 'drizzle-orm';
 import {
+	foreignKey,
 	index,
 	integer,
 	primaryKey,
@@ -20,9 +21,9 @@ export const users = sqliteTable(
 	'users',
 	{
 		id: text('id').primaryKey(),
-		lastModified: integer('last_modified', { mode: 'timestamp' })
+		lastModified: integer('last_modified', { mode: 'timestamp_ms' })
 			.notNull()
-			.default(sql`(current_timestamp)`),
+			.default(sql`(unixepoch() * 1000)`),
 		email: text('email').notNull(),
 		imageUrl: text('image_url'),
 		displayName: text('display_name'),
@@ -34,7 +35,7 @@ export const users = sqliteTable(
 		failedLoginAttempts: integer('failed_login_attempts').notNull().default(0),
 		passwordResetToken: text('password_reset_token'),
 		passwordResetTokenExpiresAt: integer('password_reset_token_expires_at', {
-			mode: 'timestamp',
+			mode: 'timestamp_ms',
 		}),
 	},
 	(table) => [uniqueIndex('users_email_idx').on(table.email)]
@@ -55,9 +56,9 @@ export const oauthAccounts = sqliteTable(
 			.references(() => users.id),
 		provider: text('provider', { enum: oauthProviders }).notNull(),
 		providerUserId: text('provider_user_id').notNull(),
-		createdAt: integer('created_at', { mode: 'timestamp' })
+		createdAt: integer('created_at', { mode: 'timestamp_ms' })
 			.notNull()
-			.default(sql`(current_timestamp)`),
+			.default(sql`(unixepoch() * 1000)`),
 	},
 	(table) => [
 		unique('oauth_accounts_provider_provider_user_id_idx').on(table.provider, table.providerUserId),
@@ -75,13 +76,13 @@ export const sessions = sqliteTable(
 			.notNull()
 			.references(() => users.id, { onDelete: 'cascade' }),
 		valid: integer('valid', { mode: 'boolean' }).notNull().default(true),
-		createdAt: integer('created_at', { mode: 'timestamp' })
+		createdAt: integer('created_at', { mode: 'timestamp_ms' })
 			.notNull()
-			.default(sql`(current_timestamp)`),
-		expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
-		lastActiveAt: integer('last_active_at', { mode: 'timestamp' })
+			.default(sql`(unixepoch() * 1000)`),
+		expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+		lastActiveAt: integer('last_active_at', { mode: 'timestamp_ms' })
 			.notNull()
-			.default(sql`(current_timestamp)`),
+			.default(sql`(unixepoch() * 1000)`),
 	},
 	(table) => [index('sessions_user_id_idx').on(table.userId)]
 );
@@ -93,9 +94,9 @@ export const clients = sqliteTable(
 	'clients',
 	{
 		id: text('id').primaryKey(),
-		lastModified: integer('last_modified', { mode: 'timestamp' })
+		lastModified: integer('last_modified', { mode: 'timestamp_ms' })
 			.notNull()
-			.default(sql`(current_timestamp)`),
+			.default(sql`(unixepoch() * 1000)`),
 		userId: text('user_id').notNull(),
 	},
 	(table) => [unique('clients_user_id_idx').on(table.userId, table.id)]
@@ -104,10 +105,10 @@ export const clients = sqliteTable(
 export const cards = sqliteTable(
 	'cards',
 	{
-		id: text('id').primaryKey(),
-		lastModified: integer('last_modified', { mode: 'timestamp' })
+		id: text('id').notNull(),
+		lastModified: integer('last_modified', { mode: 'timestamp_ms' })
 			.notNull()
-			.default(sql`(current_timestamp)`),
+			.default(sql`(unixepoch() * 1000)`),
 		seqNo: integer('seq_no').notNull(),
 		userId: text('user_id')
 			.notNull()
@@ -117,9 +118,9 @@ export const cards = sqliteTable(
 			.references(() => clients.id),
 
 		// Variables for cards
-		due: integer('due', { mode: 'timestamp' })
+		due: integer('due', { mode: 'timestamp_ms' })
 			.notNull()
-			.default(sql`(current_timestamp)`),
+			.default(sql`(unixepoch() * 1000)`),
 		stability: real('stability').notNull(),
 		difficulty: real('difficulty').notNull(),
 		elapsed_days: integer('elapsed_days').notNull(),
@@ -127,9 +128,12 @@ export const cards = sqliteTable(
 		reps: integer('reps').notNull(),
 		lapses: integer('lapses').notNull(),
 		state: text('state', { enum: states }).notNull(),
-		last_review: integer('last_review', { mode: 'timestamp' }),
+		last_review: integer('last_review', { mode: 'timestamp_ms' }),
 	},
 	(table) => [
+		primaryKey({
+			columns: [table.userId, table.id],
+		}),
 		index('cards_user_id_idx').on(table.userId),
 		index('cards_user_id_seq_no_modified_client_idx').on(
 			table.userId,
@@ -145,7 +149,8 @@ export type NewCard = typeof cards.$inferInsert;
 export const reviewLogs = sqliteTable(
 	'review_logs',
 	{
-		id: text('id').primaryKey(),
+		id: text('id').notNull(),
+		userId: text('user_id').notNull(),
 		cardId: text('card_id').notNull(),
 		seqNo: integer('seq_no').notNull(),
 		lastModifiedClient: text('last_modified_client')
@@ -155,23 +160,30 @@ export const reviewLogs = sqliteTable(
 		grade: text('grade', { enum: ratings }).notNull(),
 		state: text('state', { enum: states }).notNull(),
 
-		due: integer('due', { mode: 'timestamp' }).notNull(),
+		due: integer('due', { mode: 'timestamp_ms' }).notNull(),
 		stability: real('stability').notNull(),
 		difficulty: real('difficulty').notNull(),
 		elapsed_days: integer('elapsed_days').notNull(),
 		last_elapsed_days: integer('last_elapsed_days').notNull(),
 		scheduled_days: integer('scheduled_days').notNull(),
-		review: integer('review', { mode: 'timestamp' }).notNull(),
+		review: integer('review', { mode: 'timestamp_ms' }).notNull(),
 		duration: integer('duration').notNull().default(0),
 
-		createdAt: integer('created_at', { mode: 'timestamp' })
+		createdAt: integer('created_at', { mode: 'timestamp_ms' })
 			.notNull()
-			.default(sql`(unixepoch())`),
+			.default(sql`(unixepoch() * 1000)`),
 	},
 	(table) => [
-		index('review_logs_card_id_idx').on(table.cardId),
-		index('review_logs_card_id_seq_no_modified_client_idx').on(
-			table.cardId,
+		primaryKey({
+			columns: [table.userId, table.id],
+		}),
+		foreignKey({
+			columns: [table.userId, table.cardId],
+			foreignColumns: [cards.userId, cards.id],
+		}),
+		index('review_logs_user_id_card_id_idx').on(table.userId, table.cardId),
+		index('review_logs_user_id_seq_no_modified_client_idx').on(
+			table.userId,
 			table.seqNo,
 			table.lastModifiedClient
 		),
@@ -183,22 +195,27 @@ export type ReviewLog = typeof reviewLogs.$inferSelect;
 export const reviewLogDeleted = sqliteTable(
 	'review_log_deleted',
 	{
-		reviewLogId: text('review_log_id')
-			.primaryKey()
-			.references(() => reviewLogs.id),
+		userId: text('user_id').notNull(),
+		reviewLogId: text('review_log_id').notNull(),
 		deleted: integer('deleted', { mode: 'boolean' }).notNull().default(false),
-		lastModified: integer('last_modified', { mode: 'timestamp' })
+		lastModified: integer('last_modified', { mode: 'timestamp_ms' })
 			.notNull()
-			.default(sql`(current_timestamp)`),
+			.default(sql`(unixepoch() * 1000)`),
 		seqNo: integer('seq_no').notNull(),
 		lastModifiedClient: text('last_modified_client')
 			.notNull()
 			.references(() => clients.id),
 	},
 	(table) => [
-		index('review_log_deleted_review_log_id_idx').on(table.reviewLogId),
-		index('review_log_deleted_review_log_id_seq_no_modified_client_idx').on(
-			table.reviewLogId,
+		primaryKey({
+			columns: [table.userId, table.reviewLogId],
+		}),
+		foreignKey({
+			columns: [table.userId, table.reviewLogId],
+			foreignColumns: [reviewLogs.userId, reviewLogs.id],
+		}),
+		index('review_log_review_log_id_deleted_user_id_seq_no_modified_client_idx').on(
+			table.userId,
 			table.seqNo,
 			table.lastModifiedClient
 		),
@@ -209,23 +226,28 @@ export type ReviewLogDeleted = typeof reviewLogDeleted.$inferSelect;
 export const cardContents = sqliteTable(
 	'card_contents',
 	{
-		cardId: text('card_id')
-			.primaryKey()
-			.references(() => cards.id),
+		userId: text('user_id').notNull(),
+		cardId: text('card_id').notNull(),
 		front: text('front').notNull(),
 		back: text('back').notNull(),
-		lastModified: integer('last_modified', { mode: 'timestamp' })
+		lastModified: integer('last_modified', { mode: 'timestamp_ms' })
 			.notNull()
-			.default(sql`(current_timestamp)`),
+			.default(sql`(unixepoch() * 1000)`),
 		seqNo: integer('seq_no').notNull(),
 		lastModifiedClient: text('last_modified_client')
 			.notNull()
 			.references(() => clients.id),
 	},
 	(table) => [
-		index('card_contents_card_id_idx').on(table.cardId),
-		index('card_contents_card_id_seq_no_modified_client_idx').on(
-			table.cardId,
+		primaryKey({
+			columns: [table.userId, table.cardId],
+		}),
+		foreignKey({
+			columns: [table.userId, table.cardId],
+			foreignColumns: [cards.userId, cards.id],
+		}),
+		index('card_contents_user_id_seq_no_modified_client_idx').on(
+			table.userId,
 			table.seqNo,
 			table.lastModifiedClient
 		),
@@ -237,22 +259,27 @@ export type CardContent = typeof cardContents.$inferSelect;
 export const cardDeleted = sqliteTable(
 	'card_deleted',
 	{
-		cardId: text('card_id')
-			.primaryKey()
-			.references(() => cards.id),
+		userId: text('user_id').notNull(),
+		cardId: text('card_id').notNull(),
 		deleted: integer('deleted', { mode: 'boolean' }).notNull().default(true),
-		lastModified: integer('last_modified', { mode: 'timestamp' })
+		lastModified: integer('last_modified', { mode: 'timestamp_ms' })
 			.notNull()
-			.default(sql`(current_timestamp)`),
+			.default(sql`(unixepoch() * 1000)`),
 		seqNo: integer('seq_no').notNull(),
 		lastModifiedClient: text('last_modified_client')
 			.notNull()
 			.references(() => clients.id),
 	},
 	(table) => [
-		index('card_deleted_card_id_idx').on(table.cardId),
-		index('card_deleted_card_id_seq_no_modified_client_idx').on(
-			table.cardId,
+		primaryKey({
+			columns: [table.userId, table.cardId],
+		}),
+		foreignKey({
+			columns: [table.userId, table.cardId],
+			foreignColumns: [cards.userId, cards.id],
+		}),
+		index('card_deleted_user_id_seq_no_modified_client_idx').on(
+			table.userId,
 			table.seqNo,
 			table.lastModifiedClient
 		),
@@ -269,22 +296,27 @@ export type CardDeleted = typeof cardDeleted.$inferSelect;
 export const cardBookmarked = sqliteTable(
 	'card_bookmarked',
 	{
-		cardId: text('card_id')
-			.primaryKey()
-			.references(() => cards.id),
+		userId: text('user_id').notNull(),
+		cardId: text('card_id').notNull(),
 		bookmarked: integer('bookmarked', { mode: 'boolean' }).notNull().default(false),
-		lastModified: integer('last_modified', { mode: 'timestamp' })
+		lastModified: integer('last_modified', { mode: 'timestamp_ms' })
 			.notNull()
-			.default(sql`(current_timestamp)`),
+			.default(sql`(unixepoch() * 1000)`),
 		seqNo: integer('seq_no').notNull(),
 		lastModifiedClient: text('last_modified_client')
 			.notNull()
 			.references(() => clients.id),
 	},
 	(table) => [
-		index('card_bookmarked_card_id_idx').on(table.cardId),
-		index('card_bookmarked_card_id_seq_no_modified_client_idx').on(
-			table.cardId,
+		primaryKey({
+			columns: [table.userId, table.cardId],
+		}),
+		foreignKey({
+			columns: [table.userId, table.cardId],
+			foreignColumns: [cards.userId, cards.id],
+		}),
+		index('card_bookmarked_user_id_seq_no_modified_client_idx').on(
+			table.userId,
 			table.seqNo,
 			table.lastModifiedClient
 		),
@@ -296,24 +328,29 @@ export type CardBookmarked = typeof cardBookmarked.$inferSelect;
 export const cardSuspended = sqliteTable(
 	'card_suspended',
 	{
-		cardId: text('card_id')
-			.primaryKey()
-			.references(() => cards.id),
-		suspended: integer('suspended', { mode: 'timestamp' })
+		userId: text('user_id').notNull(),
+		cardId: text('card_id').notNull(),
+		suspended: integer('suspended', { mode: 'timestamp_ms' })
 			.notNull()
-			.default(sql`(current_timestamp)`),
-		lastModified: integer('last_modified', { mode: 'timestamp' })
+			.default(sql`(unixepoch() * 1000)`),
+		lastModified: integer('last_modified', { mode: 'timestamp_ms' })
 			.notNull()
-			.default(sql`(current_timestamp)`),
+			.default(sql`(unixepoch() * 1000)`),
 		seqNo: integer('seq_no').notNull(),
 		lastModifiedClient: text('last_modified_client')
 			.notNull()
 			.references(() => clients.id),
 	},
 	(table) => [
-		index('card_suspended_card_id_idx').on(table.cardId),
-		index('card_suspended_card_id_seq_no_modified_client_idx').on(
-			table.cardId,
+		primaryKey({
+			columns: [table.userId, table.cardId],
+		}),
+		foreignKey({
+			columns: [table.userId, table.cardId],
+			foreignColumns: [cards.userId, cards.id],
+		}),
+		index('card_suspended_user_id_seq_no_modified_client_idx').on(
+			table.userId,
 			table.seqNo,
 			table.lastModifiedClient
 		),
@@ -325,22 +362,23 @@ export type CardSuspended = typeof cardSuspended.$inferSelect;
 export const decks = sqliteTable(
 	'decks',
 	{
-		id: text('id').primaryKey(),
+		userId: text('user_id').notNull(),
+		id: text('id').notNull(),
 		name: text('name').notNull(),
 		description: text('description').notNull(),
 		deleted: integer('deleted', { mode: 'boolean' }).notNull().default(false),
-		lastModified: integer('last_modified', { mode: 'timestamp' })
+		lastModified: integer('last_modified', { mode: 'timestamp_ms' })
 			.notNull()
-			.default(sql`(current_timestamp)`),
+			.default(sql`(unixepoch() * 1000)`),
 		seqNo: integer('seq_no').notNull(),
-		userId: text('user_id')
-			.notNull()
-			.references(() => users.id),
 		lastModifiedClient: text('last_modified_client')
 			.notNull()
 			.references(() => clients.id),
 	},
 	(table) => [
+		primaryKey({
+			columns: [table.userId, table.id],
+		}),
 		index('decks_user_id_idx').on(table.userId),
 		index('decks_user_id_seq_no_modified_client_idx').on(
 			table.userId,
@@ -355,15 +393,13 @@ export type Deck = typeof decks.$inferSelect;
 export const cardDecks = sqliteTable(
 	'card_decks',
 	{
-		cardId: text('card_id')
-			.notNull()
-			.references(() => cards.id),
+		userId: text('user_id').notNull(),
+		cardId: text('card_id').notNull(),
 		deckId: text('deck_id')
+			.notNull(),
+		lastModified: integer('last_modified', { mode: 'timestamp_ms' })
 			.notNull()
-			.references(() => decks.id),
-		lastModified: integer('last_modified', { mode: 'timestamp' })
-			.notNull()
-			.default(sql`(current_timestamp)`),
+			.default(sql`(unixepoch() * 1000)`),
 		seqNo: integer('seq_no').notNull(),
 		clCount: integer('cl_count').notNull().default(0),
 		lastModifiedClient: text('last_modified_client')
@@ -372,13 +408,19 @@ export const cardDecks = sqliteTable(
 	},
 	(table) => [
 		primaryKey({
-			columns: [table.cardId, table.deckId],
+			columns: [table.userId, table.cardId, table.deckId],
 		}),
-		index('card_decks_card_id_idx').on(table.cardId),
-		index('card_decks_deck_id_idx').on(table.deckId),
-		index('card_decks_card_id_deck_id_seq_no_modified_client_idx').on(
-			table.deckId,
-			table.cardId,
+		foreignKey({
+			columns: [table.userId, table.cardId],
+			// we could choose either as the "primary" but let's just use cardId
+			foreignColumns: [cards.userId, cards.id],
+		}),
+		foreignKey({
+			columns: [table.userId, table.deckId],
+			foreignColumns: [decks.userId, decks.id],
+		}),
+		index('card_decks_user_id_seq_no_modified_client_idx').on(
+			table.userId,
 			table.seqNo,
 			table.lastModifiedClient
 		),
@@ -393,7 +435,14 @@ export const usersRelations = relations(users, ({ many }) => ({
 	sessions: many(sessions),
 	clients: many(clients),
 	cards: many(cards),
+	reviewLogs: many(reviewLogs),
+	reviewLogDeleted: many(reviewLogDeleted),
+	cardContents: many(cardContents),
+	cardDeleted: many(cardDeleted),
+	cardBookmarked: many(cardBookmarked),
+	cardSuspended: many(cardSuspended),
 	decks: many(decks),
+	cardDecks: many(cardDecks),
 	oauthAccounts: many(oauthAccounts),
 }));
 
@@ -436,12 +485,21 @@ export const reviewLogsRelations = relations(reviewLogs, ({ one }) => ({
 		fields: [reviewLogs.cardId],
 		references: [cards.id],
 	}),
+	reviewLogDeleted: one(reviewLogDeleted),
+	user: one(users, {
+		fields: [reviewLogs.userId],
+		references: [users.id],
+	}),
 }));
 
 export const reviewLogDeletedRelations = relations(reviewLogDeleted, ({ one }) => ({
 	reviewLog: one(reviewLogs, {
 		fields: [reviewLogDeleted.reviewLogId],
 		references: [reviewLogs.id],
+	}),
+	user: one(users, {
+		fields: [reviewLogDeleted.userId],
+		references: [users.id],
 	}),
 }));
 
@@ -450,6 +508,10 @@ export const cardContentsRelations = relations(cardContents, ({ one }) => ({
 		fields: [cardContents.cardId],
 		references: [cards.id],
 	}),
+	user: one(users, {
+		fields: [cardContents.userId],
+		references: [users.id],
+	}),
 }));
 
 export const cardDeletedRelations = relations(cardDeleted, ({ one }) => ({
@@ -457,12 +519,20 @@ export const cardDeletedRelations = relations(cardDeleted, ({ one }) => ({
 		fields: [cardDeleted.cardId],
 		references: [cards.id],
 	}),
+	user: one(users, {
+		fields: [cardDeleted.userId],
+		references: [users.id],
+	}),
 }));
 
 export const cardBookmarkedRelations = relations(cardBookmarked, ({ one }) => ({
 	card: one(cards, {
-		fields: [cardBookmarked.cardId],
-		references: [cards.id],
+		fields: [cardBookmarked.userId, cardBookmarked.cardId],
+		references: [cards.userId, cards.id],
+	}),
+	user: one(users, {
+		fields: [cardBookmarked.userId],
+		references: [users.id],
 	}),
 }));
 
@@ -470,6 +540,10 @@ export const cardSuspendedRelations = relations(cardSuspended, ({ one }) => ({
 	card: one(cards, {
 		fields: [cardSuspended.cardId],
 		references: [cards.id],
+	}),
+	user: one(users, {
+		fields: [cardSuspended.userId],
+		references: [users.id],
 	}),
 }));
 
@@ -482,6 +556,10 @@ export const decksRelations = relations(decks, ({ many, one }) => ({
 }));
 
 export const cardDecksRelations = relations(cardDecks, ({ one }) => ({
+	user: one(users, {
+		fields: [cardDecks.userId],
+		references: [users.id],
+	}),
 	card: one(cards, {
 		fields: [cardDecks.cardId],
 		references: [cards.id],

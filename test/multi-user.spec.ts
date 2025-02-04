@@ -50,7 +50,7 @@ describe('multi-user', () => {
 	});
 
 	it('should sync with separate seq no', async () => {
-		const response = await SELF.fetch('https://example.com/api/sync?seqNo=0', {
+		const response = await SELF.fetch('https://example.com/api/sync', {
 			method: 'POST',
 			headers: {
 				Cookie: cookie2,
@@ -176,5 +176,60 @@ describe('multi-user', () => {
 
 		const newOp2 = getResponse2.ops[0] as ServerToClient<CardOperation>;
 		expect(newOp2.payload.id).toBe(cardOp1.payload.id);
+	});
+
+	it('reusing same cardId by multiple users should not cause problems', async () => {
+		const response1 = await SELF.fetch('https://example.com/api/sync', {
+			method: 'POST',
+			headers: {
+				Cookie: cookie1,
+				'X-Client-Id': testClientId,
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({
+				ops: [cardOp1],
+			}),
+		});
+
+		expect(response1.status).toBe(200);
+		const syncResponse1: SyncResponsePOST = await response1.json();
+		expect(syncResponse1.success).toBe(true);
+
+		const response2 = await SELF.fetch('https://example.com/api/sync', {
+			method: 'POST',
+			headers: {
+				Cookie: cookie2,
+				'X-Client-Id': testUser2ClientId,
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({
+				ops: [cardOp1],
+			}),
+		});
+
+		expect(response2.status).toBe(200);
+		const syncResponse2: SyncResponsePOST = await response2.json();
+		expect(syncResponse2.success).toBe(true);
+		// User 2 syncs from another client
+		const response3 = await SELF.fetch('https://example.com/api/sync?seqNo=0', {
+			headers: {
+				Cookie: cookie2,
+				'X-Client-Id': 'another-client-id-2',
+			},
+		});
+
+		expect(response3.status).toBe(200);
+		const syncResponse3: SyncResponseGET = await response3.json();
+		expect(syncResponse3.ops).toHaveLength(1);
+
+		expect(syncResponse3.ops).toMatchObject([
+			{
+				...cardOp1,
+				payload: {
+					...cardOp1.payload,
+					due: cardOp1.payload.due.toISOString(),
+				},
+			},
+		]);
 	});
 });

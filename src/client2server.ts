@@ -74,7 +74,7 @@ export function handleCardOperation(op: ClientToServer<CardOperation>, db: DB, s
 			last_review: op.payload.last_review,
 		})
 		.onConflictDoUpdate({
-			target: schema.cards.id,
+			target: [schema.cards.userId, schema.cards.id],
 			set: {
 				seqNo,
 				lastModifiedClient: op.clientId,
@@ -114,6 +114,7 @@ export function handleReviewLogOperation(
 	return db
 		.insert(schema.reviewLogs)
 		.values({
+			userId: op.userId,
 			id: op.payload.id,
 			cardId: op.payload.cardId,
 			seqNo,
@@ -134,7 +135,7 @@ export function handleReviewLogOperation(
 			createdAt: new Date(op.timestamp),
 		})
 		.onConflictDoNothing({
-			target: [schema.reviewLogs.id],
+			target: [schema.reviewLogs.userId, schema.reviewLogs.id],
 		});
 }
 
@@ -150,6 +151,7 @@ export function handleReviewLogDeletedOperation(
 	return db
 		.insert(schema.reviewLogDeleted)
 		.values({
+			userId: op.userId,
 			reviewLogId: op.payload.reviewLogId,
 			deleted: op.payload.deleted,
 			lastModified: new Date(op.timestamp),
@@ -157,7 +159,7 @@ export function handleReviewLogDeletedOperation(
 			seqNo,
 		})
 		.onConflictDoUpdate({
-			target: [schema.reviewLogDeleted.reviewLogId],
+			target: [schema.reviewLogDeleted.userId, schema.reviewLogDeleted.reviewLogId],
 			set: {
 				deleted: op.payload.deleted,
 				lastModified: new Date(op.timestamp),
@@ -180,6 +182,7 @@ export function handleCardContentOperation(
 	return db
 		.insert(schema.cardContents)
 		.values({
+			userId: op.userId,
 			cardId: op.payload.cardId,
 			front: op.payload.front,
 			back: op.payload.back,
@@ -188,7 +191,7 @@ export function handleCardContentOperation(
 			seqNo,
 		})
 		.onConflictDoUpdate({
-			target: schema.cardContents.cardId,
+			target: [schema.cardContents.userId, schema.cardContents.cardId],
 			set: {
 				front: op.payload.front,
 				back: op.payload.back,
@@ -212,6 +215,7 @@ export function handleCardDeletedOperation(
 	return db
 		.insert(schema.cardDeleted)
 		.values({
+			userId: op.userId,
 			cardId: op.payload.cardId,
 			lastModified: new Date(op.timestamp),
 			lastModifiedClient: op.clientId,
@@ -219,7 +223,7 @@ export function handleCardDeletedOperation(
 			deleted: op.payload.deleted,
 		})
 		.onConflictDoUpdate({
-			target: schema.cardDeleted.cardId,
+			target: [schema.cardDeleted.userId, schema.cardDeleted.cardId],
 			set: {
 				lastModified: new Date(op.timestamp),
 				lastModifiedClient: op.clientId,
@@ -242,6 +246,7 @@ export function handleCardBookmarkedOperation(
 	return db
 		.insert(schema.cardBookmarked)
 		.values({
+			userId: op.userId,
 			cardId: op.payload.cardId,
 			bookmarked: op.payload.bookmarked,
 			lastModified: new Date(op.timestamp),
@@ -249,7 +254,7 @@ export function handleCardBookmarkedOperation(
 			seqNo,
 		})
 		.onConflictDoUpdate({
-			target: schema.cardBookmarked.cardId,
+			target: [schema.cardBookmarked.userId, schema.cardBookmarked.cardId],
 			set: {
 				bookmarked: op.payload.bookmarked,
 				lastModified: new Date(op.timestamp),
@@ -272,6 +277,7 @@ export function handleCardSuspendedOperation(
 	return db
 		.insert(schema.cardSuspended)
 		.values({
+			userId: op.userId,
 			cardId: op.payload.cardId,
 			suspended: op.payload.suspended,
 			lastModified: new Date(op.timestamp),
@@ -279,7 +285,7 @@ export function handleCardSuspendedOperation(
 			seqNo,
 		})
 		.onConflictDoUpdate({
-			target: schema.cardSuspended.cardId,
+			target: [schema.cardSuspended.userId, schema.cardSuspended.cardId],
 			set: {
 				suspended: op.payload.suspended,
 				lastModified: new Date(op.timestamp),
@@ -298,6 +304,7 @@ export function handleDeckOperation(op: ClientToServer<DeckOperation>, db: DB, s
 	return db
 		.insert(schema.decks)
 		.values({
+			userId: op.userId,
 			id: op.payload.id,
 			name: op.payload.name,
 			description: op.payload.description,
@@ -305,10 +312,9 @@ export function handleDeckOperation(op: ClientToServer<DeckOperation>, db: DB, s
 			lastModified: new Date(op.timestamp),
 			lastModifiedClient: op.clientId,
 			seqNo,
-			userId: op.userId,
 		})
 		.onConflictDoUpdate({
-			target: schema.decks.id,
+			target: [schema.decks.userId, schema.decks.id],
 			set: {
 				name: op.payload.name,
 				description: op.payload.description,
@@ -336,6 +342,7 @@ export function handleUpdateDeckCardOperation(
 	return db
 		.insert(schema.cardDecks)
 		.values({
+			userId: op.userId,
 			cardId: op.payload.cardId,
 			deckId: op.payload.deckId,
 			seqNo,
@@ -344,7 +351,7 @@ export function handleUpdateDeckCardOperation(
 			lastModifiedClient: op.clientId,
 		})
 		.onConflictDoUpdate({
-			target: [schema.cardDecks.cardId, schema.cardDecks.deckId],
+			target: [schema.cardDecks.userId, schema.cardDecks.cardId, schema.cardDecks.deckId],
 			set: {
 				clCount: op.payload.clCount,
 				lastModified: new Date(op.timestamp),

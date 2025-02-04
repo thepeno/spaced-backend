@@ -291,7 +291,10 @@ app.post(
 		}
 
 		const clientOps = ops.map((op) => opToClient2ServerOp(op, userId, clientId));
+		const performanceStart = performance.now();
 		await handleClientOperations(clientOps, c.env.D1);
+		const performanceEnd = performance.now();
+		logger.info(`PERF Time taken: ${performanceEnd - performanceStart}ms`);
 
 		return c.json({
 			success: true,

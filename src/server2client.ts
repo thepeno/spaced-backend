@@ -92,12 +92,12 @@ async function getReviewLogsFromSeqNo(
 
 			createdAt: schema.reviewLogs.createdAt,
 		})
-		.from(schema.cards)
-		.where(eq(schema.cards.userId, userId))
+		.from(schema.users)
+		.where(eq(schema.users.id, userId))
 		.innerJoin(
 			schema.reviewLogs,
 			and(
-				eq(schema.cards.id, schema.reviewLogs.cardId),
+				eq(schema.users.id, schema.reviewLogs.userId),
 				gt(schema.reviewLogs.seqNo, seqNo),
 				ne(schema.reviewLogs.lastModifiedClient, requestingClientId)
 			)
@@ -141,13 +141,12 @@ async function getReviewLogDeletedFromSeqNo(
 			reviewLogId: schema.reviewLogDeleted.reviewLogId,
 			deleted: schema.reviewLogDeleted.deleted,
 		})
-		.from(schema.cards)
-		.where(eq(schema.cards.userId, userId))
-		.innerJoin(schema.reviewLogs, eq(schema.cards.id, schema.reviewLogs.cardId))
+		.from(schema.users)
+		.where(eq(schema.users.id, userId))
 		.innerJoin(
 			schema.reviewLogDeleted,
 			and(
-				eq(schema.reviewLogs.id, schema.reviewLogDeleted.reviewLogId),
+				eq(schema.users.id, schema.reviewLogDeleted.userId),
 				gt(schema.reviewLogDeleted.seqNo, seqNo),
 				ne(schema.reviewLogDeleted.lastModifiedClient, requestingClientId)
 			)
@@ -178,12 +177,12 @@ async function getCardContentFromSeqNo(
 			front: schema.cardContents.front,
 			back: schema.cardContents.back,
 		})
-		.from(schema.cards)
-		.where(eq(schema.cards.userId, userId))
+		.from(schema.users)
+		.where(eq(schema.users.id, userId))
 		.innerJoin(
 			schema.cardContents,
 			and(
-				eq(schema.cards.id, schema.cardContents.cardId),
+				eq(schema.users.id, schema.cardContents.userId),
 				gt(schema.cardContents.seqNo, seqNo),
 				ne(schema.cardContents.lastModifiedClient, requestingClientId)
 			)
@@ -214,12 +213,12 @@ async function getCardDeletedFromSeqNo(
 			cardId: schema.cardDeleted.cardId,
 			deleted: schema.cardDeleted.deleted,
 		})
-		.from(schema.cards)
-		.where(eq(schema.cards.userId, userId))
+		.from(schema.users)
+		.where(eq(schema.users.id, userId))
 		.innerJoin(
 			schema.cardDeleted,
 			and(
-				eq(schema.cards.id, schema.cardDeleted.cardId),
+				eq(schema.users.id, schema.cardDeleted.userId),
 				gt(schema.cardDeleted.seqNo, seqNo),
 				ne(schema.cardDeleted.lastModifiedClient, requestingClientId)
 			)
@@ -249,12 +248,12 @@ async function getCardBookmarkedFromSeqNo(
 			cardId: schema.cardBookmarked.cardId,
 			bookmarked: schema.cardBookmarked.bookmarked,
 		})
-		.from(schema.cards)
-		.where(eq(schema.cards.userId, userId))
+		.from(schema.users)
+		.where(eq(schema.users.id, userId))
 		.innerJoin(
 			schema.cardBookmarked,
 			and(
-				eq(schema.cards.id, schema.cardBookmarked.cardId),
+				eq(schema.users.id, schema.cardBookmarked.userId),
 				gt(schema.cardBookmarked.seqNo, seqNo),
 				ne(schema.cardBookmarked.lastModifiedClient, requestingClientId)
 			)
@@ -284,12 +283,12 @@ async function getCardSuspendedFromSeqNo(
 			cardId: schema.cardSuspended.cardId,
 			suspended: schema.cardSuspended.suspended,
 		})
-		.from(schema.cards)
-		.where(eq(schema.cards.userId, userId))
+		.from(schema.users)
+		.where(eq(schema.users.id, userId))
 		.innerJoin(
 			schema.cardSuspended,
 			and(
-				eq(schema.cards.id, schema.cardSuspended.cardId),
+				eq(schema.users.id, schema.cardSuspended.userId),
 				gt(schema.cardSuspended.seqNo, seqNo),
 				ne(schema.cardSuspended.lastModifiedClient, requestingClientId)
 			)
@@ -321,10 +320,12 @@ async function getDeckFromSeqNo(
 			description: schema.decks.description,
 			deleted: schema.decks.deleted,
 		})
-		.from(schema.decks)
-		.where(
+		.from(schema.users)
+		.where(eq(schema.users.id, userId))
+		.innerJoin(
+			schema.decks,
 			and(
-				eq(schema.decks.userId, userId),
+				eq(schema.users.id, schema.decks.userId),
 				gt(schema.decks.seqNo, seqNo),
 				ne(schema.decks.lastModifiedClient, requestingClientId)
 			)
@@ -357,12 +358,12 @@ async function getDeckCardFromSeqNo(
 			deckId: schema.cardDecks.deckId,
 			clCount: schema.cardDecks.clCount,
 		})
-		.from(schema.decks)
-		.where(eq(schema.decks.userId, userId))
+		.from(schema.users)
+		.where(eq(schema.users.id, userId))
 		.innerJoin(
 			schema.cardDecks,
 			and(
-				eq(schema.decks.id, schema.cardDecks.deckId),
+				eq(schema.users.id, schema.cardDecks.userId),
 				gt(schema.cardDecks.seqNo, seqNo),
 				ne(schema.cardDecks.lastModifiedClient, requestingClientId)
 			)
