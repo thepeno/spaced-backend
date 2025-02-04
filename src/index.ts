@@ -8,7 +8,11 @@ import {
 	verifyPassword,
 } from '@/auth';
 import { createOrSignInGoogleUser, extractGooglePayload } from '@/auth/google';
-import { handleClientOperation, opToClient2ServerOp, validateOpCount } from '@/client2server';
+import {
+	handleClientOperations,
+	opToClient2ServerOp,
+	validateOpCount
+} from '@/client2server';
 import { createClientId } from '@/clientid';
 import * as schema from '@/db/schema';
 import { clientIdMiddleware } from '@/middleware/clientid';
@@ -287,9 +291,7 @@ app.post(
 		}
 
 		const clientOps = ops.map((op) => opToClient2ServerOp(op, userId, clientId));
-		for (const op of clientOps) {
-			await handleClientOperation(op, c.env.D1);
-		}
+		await handleClientOperations(clientOps, c.env.D1);
 
 		return c.json({
 			success: true,

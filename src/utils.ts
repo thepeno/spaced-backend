@@ -7,3 +7,14 @@ export function redactEmail(email: string): string {
 
 	return `${first}${last}@${domain}`;
 }
+
+/**
+ * Asserts that an array is non-empty.
+ * @param arr - The array to check.
+ * @throws An error if the array is empty.
+ */
+export function assertNonEmpty<T>(arr: T[]): asserts arr is [T, ...T[]] {
+	if (arr.length === 0) {
+		throw new Error('Array must have at least one element');
+	}
+}

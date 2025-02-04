@@ -12,7 +12,9 @@ import {
 	ReviewLogOperation,
 	UpdateDeckCardOperation,
 } from '@/operation';
+import { assertNonEmpty } from '@/utils';
 import { sql } from 'drizzle-orm';
+import { BatchItem } from 'drizzle-orm/batch';
 import { drizzle } from 'drizzle-orm/d1';
 
 // TODO: the last write wins logic can be abstracted out into something
@@ -48,15 +50,11 @@ async function reserveSeqNo(userId: string, db: D1Database, length: number): Pro
 	return result.next_seq_no as number;
 }
 
-export async function handleCardOperation(
-	op: ClientToServer<CardOperation>,
-	db: DB,
-	seqNo: number
-) {
+export function handleCardOperation(op: ClientToServer<CardOperation>, db: DB, seqNo: number) {
 	// Drizzle's transactions are not supported in D1
 	// https://github.com/drizzle-team/drizzle-orm/issues/2463
 	// so we reserve the sequence number separately first
-	await db
+	return db
 		.insert(schema.cards)
 		.values({
 			lastModified: new Date(op.timestamp),
@@ -107,13 +105,13 @@ export async function handleCardOperation(
 // For LWW - if client A updates, client B updates later, we want client B to win.
 // But for review logs, we want to know that both client A and client B did reviews
 // such that we can display these statistics later on.
-export async function handleReviewLogOperation(
+export function handleReviewLogOperation(
 	op: ClientToServer<ReviewLogOperation>,
 	db: DB,
 	seqNo: number
 ) {
 	// on conflict, just do nothing to ensure idempotency in this grow-only set
-	await db
+	return db
 		.insert(schema.reviewLogs)
 		.values({
 			id: op.payload.id,
@@ -144,12 +142,12 @@ export async function handleReviewLogOperation(
 // This allows us to implement "undo" operations for reviews
 // as the "undo" just marks the review log as deleted.
 // as we can just filter out the review logs that have been deleted.
-export async function handleReviewLogDeletedOperation(
+export function handleReviewLogDeletedOperation(
 	op: ClientToServer<ReviewLogDeletedOperation>,
 	db: DB,
 	seqNo: number
 ) {
-	await db
+	return db
 		.insert(schema.reviewLogDeleted)
 		.values({
 			reviewLogId: op.payload.reviewLogId,
@@ -174,12 +172,12 @@ export async function handleReviewLogDeletedOperation(
 		});
 }
 
-export async function handleCardContentOperation(
+export function handleCardContentOperation(
 	op: ClientToServer<CardContentOperation>,
 	db: DB,
 	seqNo: number
 ) {
-	await db
+	return db
 		.insert(schema.cardContents)
 		.values({
 			cardId: op.payload.cardId,
@@ -206,12 +204,12 @@ export async function handleCardContentOperation(
 		});
 }
 
-export async function handleCardDeletedOperation(
+export function handleCardDeletedOperation(
 	op: ClientToServer<CardDeletedOperation>,
 	db: DB,
 	seqNo: number
 ) {
-	await db
+	return db
 		.insert(schema.cardDeleted)
 		.values({
 			cardId: op.payload.cardId,
@@ -236,12 +234,12 @@ export async function handleCardDeletedOperation(
 		});
 }
 
-export async function handleCardBookmarkedOperation(
+export function handleCardBookmarkedOperation(
 	op: ClientToServer<CardBookmarkedOperation>,
 	db: DB,
 	seqNo: number
 ) {
-	await db
+	return db
 		.insert(schema.cardBookmarked)
 		.values({
 			cardId: op.payload.cardId,
@@ -266,12 +264,12 @@ export async function handleCardBookmarkedOperation(
 		});
 }
 
-export async function handleCardSuspendedOperation(
+export function handleCardSuspendedOperation(
 	op: ClientToServer<CardSuspendedOperation>,
 	db: DB,
 	seqNo: number
 ) {
-	await db
+	return db
 		.insert(schema.cardSuspended)
 		.values({
 			cardId: op.payload.cardId,
@@ -296,12 +294,8 @@ export async function handleCardSuspendedOperation(
 		});
 }
 
-export async function handleDeckOperation(
-	op: ClientToServer<DeckOperation>,
-	db: DB,
-	seqNo: number
-) {
-	await db
+export function handleDeckOperation(op: ClientToServer<DeckOperation>, db: DB, seqNo: number) {
+	return db
 		.insert(schema.decks)
 		.values({
 			id: op.payload.id,
@@ -334,12 +328,12 @@ export async function handleDeckOperation(
 // Card - Deck relation modelled using a CLSet
 // If the count is even, the card is in the deck
 // The join operation just takes the max of the two counts
-export async function handleUpdateDeckCardOperation(
+export function handleUpdateDeckCardOperation(
 	op: ClientToServer<UpdateDeckCardOperation>,
 	db: DB,
 	seqNo: number
 ) {
-	await db
+	return db
 		.insert(schema.cardDecks)
 		.values({
 			cardId: op.payload.cardId,
@@ -360,6 +354,33 @@ export async function handleUpdateDeckCardOperation(
 			setWhere: sql`excluded.cl_count > ${schema.cardDecks.clCount}`,
 		});
 }
+export function operationToBatchItem(
+	op: ClientToServer<Operation>,
+	db: DB,
+	seqNo: number
+): BatchItem<'sqlite'> {
+	switch (op.type) {
+		case 'card':
+			return handleCardOperation(op, db, seqNo);
+		case 'reviewLog':
+			return handleReviewLogOperation(op, db, seqNo);
+		case 'reviewLogDeleted':
+			return handleReviewLogDeletedOperation(op, db, seqNo);
+		case 'cardContent':
+			return handleCardContentOperation(op, db, seqNo);
+		case 'cardDeleted':
+			return handleCardDeletedOperation(op, db, seqNo);
+		case 'cardBookmarked':
+			return handleCardBookmarkedOperation(op, db, seqNo);
+		case 'cardSuspended':
+			return handleCardSuspendedOperation(op, db, seqNo);
+		case 'deck':
+			return handleDeckOperation(op, db, seqNo);
+		case 'updateDeckCard':
+			return handleUpdateDeckCardOperation(op, db, seqNo);
+	}
+	throw new Error(`Unknown operation type: ${JSON.stringify(op)}`);
+}
 
 export async function handleClientOperation(op: ClientToServer<Operation>, db: D1Database) {
 	const seqNo = await reserveSeqNo(op.userId, db, 1);
@@ -368,29 +389,18 @@ export async function handleClientOperation(op: ClientToServer<Operation>, db: D
 		schema,
 	});
 
-	switch (op.type) {
-		case 'card':
-			return handleCardOperation(op, drizzleDb, seqNo);
-		case 'reviewLog':
-			return handleReviewLogOperation(op, drizzleDb, seqNo);
-		case 'reviewLogDeleted':
-			return handleReviewLogDeletedOperation(op, drizzleDb, seqNo);
-		case 'cardContent':
-			return handleCardContentOperation(op, drizzleDb, seqNo);
-		case 'cardDeleted':
-			return handleCardDeletedOperation(op, drizzleDb, seqNo);
-		case 'cardBookmarked':
-			return handleCardBookmarkedOperation(op, drizzleDb, seqNo);
-		case 'cardSuspended':
-			return handleCardSuspendedOperation(op, drizzleDb, seqNo);
-		case 'deck':
-			return handleDeckOperation(op, drizzleDb, seqNo);
-		case 'updateDeckCard':
-			return handleUpdateDeckCardOperation(op, drizzleDb, seqNo);
-		default:
-			const _exhaustiveCheck: never = op;
-			throw new Error(`Unknown operation type: ${JSON.stringify(op)}`);
-	}
+	await drizzleDb.batch([operationToBatchItem(op, drizzleDb, seqNo)]);
+}
+
+export async function handleClientOperations(ops: ClientToServer<Operation>[], db: D1Database) {
+	const seqNo = await reserveSeqNo(ops[0].userId, db, ops.length);
+	const drizzleDb = drizzle(db, {
+		schema,
+	});
+
+	const batchOps = ops.map((op, i) => operationToBatchItem(op, drizzleDb, seqNo + i));
+	assertNonEmpty(batchOps);
+	await drizzleDb.batch(batchOps);
 }
 
 /**
