@@ -17,7 +17,7 @@ const db = drizzle(env.D1, {
 
 describe('basic', () => {
 	it('responds with OK (integration style)', async () => {
-		const response = await SELF.fetch('http://localhost:3000/');
+		const response = await SELF.fetch('http://localhost:3000/api');
 		expect(await response.text()).toMatchInlineSnapshot(`"OK"`);
 	});
 });
@@ -25,7 +25,7 @@ describe('basic', () => {
 describe('auth', () => {
 	describe('/register', () => {
 		it('can register a user', async () => {
-			const response = await SELF.fetch('http://localhost:3000/register', {
+			const response = await SELF.fetch('http://localhost:3000/api/auth/register', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -40,7 +40,7 @@ describe('auth', () => {
 		});
 
 		it('returns error if password is too short', async () => {
-			const response = await SELF.fetch('http://localhost:3000/register', {
+			const response = await SELF.fetch('http://localhost:3000/api/auth/register', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -52,7 +52,7 @@ describe('auth', () => {
 		});
 
 		it('returns error if password is too long', async () => {
-			const response = await SELF.fetch('http://localhost:3000/register', {
+			const response = await SELF.fetch('http://localhost:3000/api/auth/register', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -64,7 +64,7 @@ describe('auth', () => {
 		});
 
 		it('returns error if user already exists', async () => {
-			const response = await SELF.fetch('http://localhost:3000/register', {
+			const response = await SELF.fetch('http://localhost:3000/api/auth/register', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -80,7 +80,7 @@ describe('auth', () => {
 		});
 
 		it('sets a cookie if registration is successful', async () => {
-			const response = await SELF.fetch('http://localhost:3000/register', {
+			const response = await SELF.fetch('http://localhost:3000/api/auth/register', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -100,7 +100,7 @@ describe('auth', () => {
 
 	describe('/login', () => {
 		it('can login a user', async () => {
-			const response = await SELF.fetch('http://localhost:3000/login', {
+			const response = await SELF.fetch('http://localhost:3000/api/auth/login', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -122,7 +122,7 @@ describe('auth', () => {
 		});
 
 		it('returns false if login is unsuccessful', async () => {
-			const response = await SELF.fetch('http://localhost:3000/login', {
+			const response = await SELF.fetch('http://localhost:3000/api/auth/login', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -139,7 +139,7 @@ describe('auth', () => {
 
 	describe('/logout', () => {
 		it('can logout a user', async () => {
-			const loginResponse = await SELF.fetch('http://localhost:3000/login', {
+			const loginResponse = await SELF.fetch('http://localhost:3000/api/auth/login', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -158,7 +158,7 @@ describe('auth', () => {
 			let session = allSessions[0];
 			expect(session.valid).toBe(true);
 
-			const response = await SELF.fetch('http://localhost:3000/logout', {
+			const response = await SELF.fetch('http://localhost:3000/api/auth/logout', {
 				method: 'POST',
 				headers: {
 					Cookie: `${SESSION_COOKIE_NAME}=${sid}`,
@@ -179,7 +179,7 @@ describe('auth', () => {
 		});
 
 		it('logout success false if no sid', async () => {
-			const response = await SELF.fetch('http://localhost:3000/logout', {
+			const response = await SELF.fetch('http://localhost:3000/api/auth/logout', {
 				method: 'POST',
 			});
 
@@ -198,7 +198,7 @@ describe('auth', () => {
 		});
 
 		it('returns the user id', async () => {
-			const response = await SELF.fetch('http://localhost:3000/me', {
+			const response = await SELF.fetch('http://localhost:3000/api/auth/me', {
 				headers: {
 					Cookie: cookie,
 				},
@@ -219,12 +219,12 @@ describe('auth', () => {
 		});
 
 		it('returns 401 if no cookie', async () => {
-			const response = await SELF.fetch('http://localhost:3000/me');
+			const response = await SELF.fetch('http://localhost:3000/api/auth/me');
 			expect(response.status).toBe(401);
 		});
 
 		it('returns 401 if cookie is invalid', async () => {
-			const response = await SELF.fetch('http://localhost:3000/me', {
+			const response = await SELF.fetch('http://localhost:3000/api/auth/me', {
 				headers: {
 					Cookie: 'invalid-cookie',
 				},
@@ -235,7 +235,7 @@ describe('auth', () => {
 		it('returns 401 if session does not exist', async () => {
 			await db.delete(schema.sessions).execute();
 
-			const response = await SELF.fetch('http://localhost:3000/me', {
+			const response = await SELF.fetch('http://localhost:3000/api/auth/me', {
 				headers: {
 					Cookie: cookie,
 				},
@@ -246,7 +246,7 @@ describe('auth', () => {
 		it('returns 401 if session is invalid', async () => {
 			await db.update(schema.sessions).set({ valid: false });
 
-			const response = await SELF.fetch('http://localhost:3000/me', {
+			const response = await SELF.fetch('http://localhost:3000/api/auth/me', {
 				headers: {
 					Cookie: cookie,
 				},
@@ -257,7 +257,7 @@ describe('auth', () => {
 		it('returns 401 if session is expired', async () => {
 			await db.update(schema.sessions).set({ expiresAt: new Date(Date.now() - 1000) });
 
-			const response = await SELF.fetch('http://localhost:3000/me', {
+			const response = await SELF.fetch('http://localhost:3000/api/auth/me', {
 				headers: {
 					Cookie: cookie,
 				},

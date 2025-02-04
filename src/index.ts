@@ -7,6 +7,7 @@ import {
 	SESSION_COOKIE_NAME,
 	verifyPassword,
 } from '@/auth';
+import { createOrSignInGoogleUser, extractGooglePayload } from '@/auth/google';
 import { handleClientOperation, opToClient2ServerOp, validateOpCount } from '@/client2server';
 import { createClientId } from '@/clientid';
 import * as schema from '@/db/schema';
@@ -25,7 +26,7 @@ import { CookieOptions } from 'hono/utils/cookie';
 import { z } from 'zod';
 import logger from './logger';
 
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono<{ Bindings: Env }>().basePath('/api');
 app.use(requestLogger());
 app.use(
 	cors({
@@ -53,7 +54,7 @@ app.get('/', (c) => {
 });
 
 app.post(
-	'/register',
+	'/auth/register',
 	zValidator(
 		'json',
 		z.object({
@@ -101,7 +102,7 @@ app.post(
 );
 
 app.post(
-	'/login',
+	'/auth/login',
 	zValidator(
 		'json',
 		z.object({
@@ -161,7 +162,7 @@ app.post(
 	}
 );
 
-app.post('/logout', async (c) => {
+app.post('/auth/logout', async (c) => {
 	const sid = await getSignedCookie(c, c.env.COOKIE_SECRET, SESSION_COOKIE_NAME);
 	if (!sid) {
 		return c.json({
@@ -188,7 +189,7 @@ app.post('/logout', async (c) => {
 	});
 });
 
-app.get('/me', sessionMiddleware, async (c) => {
+app.get('/auth/me', sessionMiddleware, async (c) => {
 	const userId = c.get('userId');
 	logger.info({ userId }, 'GET /me request');
 
@@ -198,7 +199,7 @@ app.get('/me', sessionMiddleware, async (c) => {
 });
 
 // For requesting a new client ID
-app.post('/clientId', sessionMiddleware, async (c) => {
+app.post('/auth/clientId', sessionMiddleware, async (c) => {
 	const userId = c.get('userId');
 	const clientId = await createClientId(drizzle(c.env.D1), userId);
 

@@ -70,7 +70,7 @@ export async function loginTestUser(
 ): Promise<{
 	cookie: string;
 }> {
-	const response = await SELF.fetch('http://localhost:3000/login', {
+	const response = await SELF.fetch('http://localhost:3000/api/auth/login', {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',

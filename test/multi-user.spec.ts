@@ -37,7 +37,7 @@ const cardOp1: Operation = {
 
 describe('multi-user', () => {
 	it('should not be able to sync with a different user', async () => {
-		const response = await SELF.fetch('https://example.com/sync?seqNo=0', {
+		const response = await SELF.fetch('https://example.com/api/sync?seqNo=0', {
 			headers: {
 				Cookie: cookie2,
 				'X-Client-Id': testUser2ClientId,
@@ -50,7 +50,7 @@ describe('multi-user', () => {
 	});
 
 	it('should sync with separate seq no', async () => {
-		const response = await SELF.fetch('https://example.com/sync?seqNo=0', {
+		const response = await SELF.fetch('https://example.com/api/sync?seqNo=0', {
 			method: 'POST',
 			headers: {
 				Cookie: cookie2,
@@ -64,7 +64,7 @@ describe('multi-user', () => {
 		const syncResponse: SyncResponsePOST = await response.json();
 		expect(syncResponse.success).toBe(true);
 
-		const response2 = await SELF.fetch('https://example.com/sync?seqNo=0', {
+		const response2 = await SELF.fetch('https://example.com/api/sync?seqNo=0', {
 			headers: {
 				Cookie: cookie2,
 				'X-Client-Id': 'another-client-id',
@@ -87,13 +87,13 @@ describe('multi-user', () => {
 
 	it('should handle concurrent fetch requests', async () => {
 		const [response1, response2] = await Promise.all([
-			SELF.fetch('https://example.com/sync?seqNo=0', {
+			SELF.fetch('https://example.com/api/sync?seqNo=0', {
 				headers: {
 					Cookie: cookie1,
 					'X-Client-Id': 'another-client-id-1',
 				},
 			}),
-			SELF.fetch('https://example.com/sync?seqNo=0', {
+			SELF.fetch('https://example.com/api/sync?seqNo=0', {
 				headers: {
 					Cookie: cookie2,
 					'X-Client-Id': 'another-client-id-2',
@@ -110,7 +110,7 @@ describe('multi-user', () => {
 
 	it('should handle concurrent POST requests', async () => {
 		const [response1, response2] = await Promise.all([
-			SELF.fetch('https://example.com/sync?seqNo=0', {
+			SELF.fetch('https://example.com/api/sync?seqNo=0', {
 				method: 'POST',
 				headers: {
 					Cookie: cookie1,
@@ -129,7 +129,7 @@ describe('multi-user', () => {
 					],
 				}),
 			}),
-			SELF.fetch('https://example.com/sync?seqNo=0', {
+			SELF.fetch('https://example.com/api/sync?seqNo=0', {
 				method: 'POST',
 				headers: {
 					Cookie: cookie2,
@@ -151,13 +151,13 @@ describe('multi-user', () => {
 		expect(syncResponse2.success).toBe(true);
 
 		const [get1, get2] = await Promise.all([
-			SELF.fetch('https://example.com/sync?seqNo=0', {
+			SELF.fetch('https://example.com/api/sync?seqNo=0', {
 				headers: {
 					Cookie: cookie1,
 					'X-Client-Id': 'another-client-id-1',
 				},
 			}),
-			SELF.fetch('https://example.com/sync?seqNo=0', {
+			SELF.fetch('https://example.com/api/sync?seqNo=0', {
 				headers: {
 					Cookie: cookie2,
 					'X-Client-Id': 'another-client-id-2',
