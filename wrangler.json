@@ -9,23 +9,25 @@
 	"d1_databases": [
 		{
 			"binding": "D1",
-			"database_name": "spaced-backend-dev-test",
+			"database_name": "spaced-backend",
 			"database_id": "79fb20e7-a5f3-43da-9c27-8e781b5a3beb",
 			"migrations_dir": "drizzle/migrations"
 		}
 	],
 	"vars": {
-		"WORKER_ENV": "production"
+		"WORKER_ENV": "production",
+		"FRONTEND_ORIGIN": "spaced2.zsheng.app"
 	},
 	"env": {
 		"local": {
 			"vars": {
-				"WORKER_ENV": "local"
+				"WORKER_ENV": "local",
+				"FRONTEND_ORIGIN": "http://localhost:5173"
 			},
 			"d1_databases": [
 				{
 					"binding": "D1",
-					"database_name": "spaced-backend-dev-test",
+					"database_name": "spaced-backend",
 					"database_id": "79fb20e7-a5f3-43da-9c27-8e781b5a3beb",
 					"migrations_dir": "drizzle/migrations"
 				}

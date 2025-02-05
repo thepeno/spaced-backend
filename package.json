@@ -8,7 +8,8 @@
     "start": "wrangler dev --env=local",
     "test": "vitest",
     "cf-typegen": "wrangler types",
-    "gen": "drizzle-kit generate && bash ./scripts/generate-schema.sh"
+    "gen": "drizzle-kit generate && bash ./scripts/generate-schema.sh",
+    "schema:remote": "wrangler d1 execute spaced-backend --remote --file=./drizzle/0000_nosy_toad_men.sql"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.6.4",

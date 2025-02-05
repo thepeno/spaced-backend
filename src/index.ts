@@ -8,11 +8,7 @@ import {
 	verifyPassword,
 } from '@/auth';
 import { createOrSignInGoogleUser, extractGooglePayload } from '@/auth/google';
-import {
-	handleClientOperations,
-	opToClient2ServerOp,
-	validateOpCount
-} from '@/client2server';
+import { handleClientOperations, opToClient2ServerOp, validateOpCount } from '@/client2server';
 import { createClientId } from '@/clientid';
 import * as schema from '@/db/schema';
 import { clientIdMiddleware } from '@/middleware/clientid';
@@ -32,14 +28,17 @@ import logger from './logger';
 
 const app = new Hono<{ Bindings: Env }>().basePath('/api');
 app.use(requestLogger());
-app.use(
-	cors({
-		origin: 'http://localhost:5173',
+
+app.use('*', async (c, next) => {
+	const corsMiddleware = cors({
+		origin: c.env.FRONTEND_ORIGIN,
 		allowHeaders: ['Content-Type', 'Authorization', 'X-Client-Id'],
 		allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 		credentials: true,
-	})
-);
+	});
+
+	await corsMiddleware(c, next);
+});
 
 const devCookieOptions: CookieOptions = {
 	expires: new Date(Date.now() + COOKIE_EXPIRATION_TIME_MS),
