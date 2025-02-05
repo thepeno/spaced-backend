@@ -20,7 +20,8 @@ export async function hashPassword(password: string, providedSalt?: Uint8Array):
 		{
 			name: 'PBKDF2',
 			salt: salt,
-			iterations: 310000,
+			// max for cloudflare worker is 100000 iterations
+			iterations: 100000,
 			hash: 'SHA-256',
 		},
 		keyMaterial,
