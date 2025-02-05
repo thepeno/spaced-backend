@@ -16,7 +16,7 @@
 	],
 	"vars": {
 		"WORKER_ENV": "production",
-		"FRONTEND_ORIGIN": "spaced2.zsheng.app"
+		"FRONTEND_ORIGIN": "https://spaced2.zsheng.app"
 	},
 	"env": {
 		"local": {

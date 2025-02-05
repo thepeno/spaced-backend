@@ -37,20 +37,28 @@ app.use('*', async (c, next) => {
 		credentials: true,
 	});
 
-	await corsMiddleware(c, next);
+	return corsMiddleware(c, next);
 });
 
-const devCookieOptions: CookieOptions = {
+// We have to make the cookie options dynamically
+// because we want the expiration time to be dynamic
+// In addition, Cloudflare date seems to be Unix 0 time when this code initially runs,
+// so the expires was always in the past.
+const makeDevCookieOptions: () => CookieOptions = () => ({
 	expires: new Date(Date.now() + COOKIE_EXPIRATION_TIME_MS),
 	httpOnly: true,
 	secure: false,
-};
+});
 
-const prodCookieOptions: CookieOptions = {
+const makeProdCookieOptions: () => CookieOptions = () => ({
 	expires: new Date(Date.now() + COOKIE_EXPIRATION_TIME_MS),
 	httpOnly: true,
 	secure: true,
-};
+	// ?: is this needed?
+	// domain: '.zsheng.app', // Allow all subdomains
+	// path: '/', // Accessible across all paths
+	// sameSite: 'Lax', // Or 'None' if needed for cross-origin (requires Secure)
+});
 
 app.get('/', (c) => {
 	return c.text('OK');
@@ -89,7 +97,7 @@ app.post(
 			});
 		}
 
-		const cookieOptions = c.env.WORKER_ENV === 'local' ? devCookieOptions : prodCookieOptions;
+		const cookieOptions = c.env.WORKER_ENV === 'local' ? makeDevCookieOptions() : makeProdCookieOptions();
 		setSignedCookie(
 			c,
 			SESSION_COOKIE_NAME,
@@ -150,7 +158,7 @@ app.post(
 			});
 		}
 
-		const cookieOptions = c.env.WORKER_ENV === 'local' ? devCookieOptions : prodCookieOptions;
+		const cookieOptions = c.env.WORKER_ENV === 'local' ? makeDevCookieOptions() : makeProdCookieOptions();
 		setSignedCookie(
 			c,
 			SESSION_COOKIE_NAME,
@@ -247,7 +255,7 @@ app.post('/auth/google', async (c) => {
 		});
 	}
 
-	const cookieOptions = c.env.WORKER_ENV === 'local' ? devCookieOptions : prodCookieOptions;
+	const cookieOptions = c.env.WORKER_ENV === 'local' ? makeDevCookieOptions() : makeProdCookieOptions();
 	setSignedCookie(
 		c,
 		SESSION_COOKIE_NAME,
