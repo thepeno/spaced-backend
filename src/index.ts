@@ -258,7 +258,7 @@ app.post('/auth/google', async (c) => {
 
 	const clientId = await createClientId(drizzle(c.env.D1), createOrSignInGoogleUserResult.user.id);
 
-	return c.redirect(`http://localhost:5173/login-success?clientId=${clientId}`);
+	return c.redirect(`${c.env.FRONTEND_ORIGIN}/login-success?clientId=${clientId}`);
 });
 
 // The simple version of  this is to execute all requests in sequence

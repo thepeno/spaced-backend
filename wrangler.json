@@ -33,5 +33,11 @@
 				}
 			]
 		}
-	}
+	},
+	"routes": [
+		{
+			"pattern": "api.spaced2.zsheng.app",
+			"custom_domain": true
+		}
+	]
 }
