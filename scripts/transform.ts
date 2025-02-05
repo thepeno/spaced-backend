@@ -158,23 +158,30 @@ async function main() {
 		timestamp: now.getTime(),
 	})) satisfies CardContentOperation[];
 
-	const cardDeletedOperations = cardWithContents.map(({ cards }) => ({
-		type: 'cardDeleted',
-		payload: {
-			cardId: cards.id,
-			deleted: cards.deleted,
-		},
-		timestamp: now.getTime(),
-	})) satisfies CardDeletedOperation[];
+	// Only included the deleted cards that were actually deleted
+	const cardDeletedOperations = cardWithContents
+		.filter(({ cards }) => cards.deleted)
+		.map(({ cards }) => ({
+			type: 'cardDeleted',
+			payload: {
+				cardId: cards.id,
+				deleted: cards.deleted,
+			},
+			timestamp: now.getTime(),
+		})) satisfies CardDeletedOperation[];
 
-	const cardSuspendedOperations = cardWithContents.map(({ cards }) => ({
-		type: 'cardSuspended',
-		payload: {
-			cardId: cards.id,
-			suspended: cards.suspended,
-		},
-		timestamp: now.getTime(),
-	})) satisfies CardSuspendedOperation[];
+	// Only included the suspended cards that were actually suspended before
+	const DELTA = 5000;
+	const cardSuspendedOperations = cardWithContents
+		.filter(({ cards }) => Math.abs(cards.suspended.getTime() - cards.createdAt.getTime()) > DELTA)
+		.map(({ cards }) => ({
+			type: 'cardSuspended',
+			payload: {
+				cardId: cards.id,
+				suspended: cards.suspended,
+			},
+			timestamp: now.getTime(),
+		})) satisfies CardSuspendedOperation[];
 
 	const decks = await oldDb.query.decks.findMany({
 		where: eq(oldSchema.decks.userId, user.id),
