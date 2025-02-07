@@ -4,7 +4,7 @@ CREATE TABLE \`card_bookmarked\` (
 	\`user_id\` text NOT NULL,
 	\`card_id\` text NOT NULL,
 	\`bookmarked\` integer DEFAULT false NOT NULL,
-	\`last_modified\` integer DEFAULT (current_timestamp) NOT NULL,
+	\`last_modified\` integer DEFAULT (unixepoch() * 1000) NOT NULL,
 	\`seq_no\` integer NOT NULL,
 	\`last_modified_client\` text NOT NULL,
 	PRIMARY KEY(\`user_id\`, \`card_id\`),
@@ -18,7 +18,7 @@ CREATE TABLE \`card_contents\` (
 	\`card_id\` text NOT NULL,
 	\`front\` text NOT NULL,
 	\`back\` text NOT NULL,
-	\`last_modified\` integer DEFAULT (current_timestamp) NOT NULL,
+	\`last_modified\` integer DEFAULT (unixepoch() * 1000) NOT NULL,
 	\`seq_no\` integer NOT NULL,
 	\`last_modified_client\` text NOT NULL,
 	PRIMARY KEY(\`user_id\`, \`card_id\`),
@@ -31,7 +31,7 @@ CREATE TABLE \`card_decks\` (
 	\`user_id\` text NOT NULL,
 	\`card_id\` text NOT NULL,
 	\`deck_id\` text NOT NULL,
-	\`last_modified\` integer DEFAULT (current_timestamp) NOT NULL,
+	\`last_modified\` integer DEFAULT (unixepoch() * 1000) NOT NULL,
 	\`seq_no\` integer NOT NULL,
 	\`cl_count\` integer DEFAULT 0 NOT NULL,
 	\`last_modified_client\` text NOT NULL,
@@ -46,7 +46,7 @@ CREATE TABLE \`card_deleted\` (
 	\`user_id\` text NOT NULL,
 	\`card_id\` text NOT NULL,
 	\`deleted\` integer DEFAULT true NOT NULL,
-	\`last_modified\` integer DEFAULT (current_timestamp) NOT NULL,
+	\`last_modified\` integer DEFAULT (unixepoch() * 1000) NOT NULL,
 	\`seq_no\` integer NOT NULL,
 	\`last_modified_client\` text NOT NULL,
 	PRIMARY KEY(\`user_id\`, \`card_id\`),
@@ -58,8 +58,8 @@ CREATE INDEX \`card_deleted_user_id_seq_no_modified_client_idx\` ON \`card_delet
 CREATE TABLE \`card_suspended\` (
 	\`user_id\` text NOT NULL,
 	\`card_id\` text NOT NULL,
-	\`suspended\` integer DEFAULT (current_timestamp) NOT NULL,
-	\`last_modified\` integer DEFAULT (current_timestamp) NOT NULL,
+	\`suspended\` integer DEFAULT (unixepoch() * 1000) NOT NULL,
+	\`last_modified\` integer DEFAULT (unixepoch() * 1000) NOT NULL,
 	\`seq_no\` integer NOT NULL,
 	\`last_modified_client\` text NOT NULL,
 	PRIMARY KEY(\`user_id\`, \`card_id\`),
@@ -70,11 +70,11 @@ CREATE TABLE \`card_suspended\` (
 CREATE INDEX \`card_suspended_user_id_seq_no_modified_client_idx\` ON \`card_suspended\` (\`user_id\`,\`seq_no\`,\`last_modified_client\`);--> statement-breakpoint
 CREATE TABLE \`cards\` (
 	\`id\` text NOT NULL,
-	\`last_modified\` integer DEFAULT (current_timestamp) NOT NULL,
+	\`last_modified\` integer DEFAULT (unixepoch() * 1000) NOT NULL,
 	\`seq_no\` integer NOT NULL,
 	\`user_id\` text NOT NULL,
 	\`last_modified_client\` text NOT NULL,
-	\`due\` integer DEFAULT (current_timestamp) NOT NULL,
+	\`due\` integer DEFAULT (unixepoch() * 1000) NOT NULL,
 	\`stability\` real NOT NULL,
 	\`difficulty\` real NOT NULL,
 	\`elapsed_days\` integer NOT NULL,
@@ -92,7 +92,7 @@ CREATE INDEX \`cards_user_id_idx\` ON \`cards\` (\`user_id\`);--> statement-brea
 CREATE INDEX \`cards_user_id_seq_no_modified_client_idx\` ON \`cards\` (\`user_id\`,\`seq_no\`,\`last_modified_client\`);--> statement-breakpoint
 CREATE TABLE \`clients\` (
 	\`id\` text PRIMARY KEY NOT NULL,
-	\`last_modified\` integer DEFAULT (current_timestamp) NOT NULL,
+	\`last_modified\` integer DEFAULT (unixepoch() * 1000) NOT NULL,
 	\`user_id\` text NOT NULL
 );
 --> statement-breakpoint
@@ -103,7 +103,7 @@ CREATE TABLE \`decks\` (
 	\`name\` text NOT NULL,
 	\`description\` text NOT NULL,
 	\`deleted\` integer DEFAULT false NOT NULL,
-	\`last_modified\` integer DEFAULT (current_timestamp) NOT NULL,
+	\`last_modified\` integer DEFAULT (unixepoch() * 1000) NOT NULL,
 	\`seq_no\` integer NOT NULL,
 	\`last_modified_client\` text NOT NULL,
 	PRIMARY KEY(\`user_id\`, \`id\`),
@@ -117,7 +117,7 @@ CREATE TABLE \`oauth_accounts\` (
 	\`user_id\` text NOT NULL,
 	\`provider\` text NOT NULL,
 	\`provider_user_id\` text NOT NULL,
-	\`created_at\` integer DEFAULT (current_timestamp) NOT NULL,
+	\`created_at\` integer DEFAULT (unixepoch() * 1000) NOT NULL,
 	FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -126,7 +126,7 @@ CREATE TABLE \`review_log_deleted\` (
 	\`user_id\` text NOT NULL,
 	\`review_log_id\` text NOT NULL,
 	\`deleted\` integer DEFAULT false NOT NULL,
-	\`last_modified\` integer DEFAULT (current_timestamp) NOT NULL,
+	\`last_modified\` integer DEFAULT (unixepoch() * 1000) NOT NULL,
 	\`seq_no\` integer NOT NULL,
 	\`last_modified_client\` text NOT NULL,
 	PRIMARY KEY(\`user_id\`, \`review_log_id\`),
@@ -151,7 +151,7 @@ CREATE TABLE \`review_logs\` (
 	\`scheduled_days\` integer NOT NULL,
 	\`review\` integer NOT NULL,
 	\`duration\` integer DEFAULT 0 NOT NULL,
-	\`created_at\` integer DEFAULT (unixepoch()) NOT NULL,
+	\`created_at\` integer DEFAULT (unixepoch() * 1000) NOT NULL,
 	PRIMARY KEY(\`user_id\`, \`id\`),
 	FOREIGN KEY (\`last_modified_client\`) REFERENCES \`clients\`(\`id\`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (\`user_id\`,\`card_id\`) REFERENCES \`cards\`(\`user_id\`,\`id\`) ON UPDATE no action ON DELETE no action
@@ -163,21 +163,21 @@ CREATE TABLE \`sessions\` (
 	\`id\` text PRIMARY KEY NOT NULL,
 	\`user_id\` text NOT NULL,
 	\`valid\` integer DEFAULT true NOT NULL,
-	\`created_at\` integer DEFAULT (current_timestamp) NOT NULL,
+	\`created_at\` integer DEFAULT (unixepoch() * 1000) NOT NULL,
 	\`expires_at\` integer NOT NULL,
-	\`last_active_at\` integer DEFAULT (current_timestamp) NOT NULL,
+	\`last_active_at\` integer DEFAULT (unixepoch() * 1000) NOT NULL,
 	FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
 CREATE INDEX \`sessions_user_id_idx\` ON \`sessions\` (\`user_id\`);--> statement-breakpoint
 CREATE TABLE \`users\` (
 	\`id\` text PRIMARY KEY NOT NULL,
-	\`last_modified\` integer DEFAULT (current_timestamp) NOT NULL,
+	\`last_modified\` integer DEFAULT (unixepoch() * 1000) NOT NULL,
 	\`email\` text NOT NULL,
 	\`image_url\` text,
 	\`display_name\` text,
 	\`is_active\` integer DEFAULT true NOT NULL,
-	\`password_hash\` text NOT NULL,
+	\`password_hash\` text,
 	\`next_seq_no\` integer DEFAULT 1 NOT NULL,
 	\`failed_login_attempts\` integer DEFAULT 0 NOT NULL,
 	\`password_reset_token\` text,

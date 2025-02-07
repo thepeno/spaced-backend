@@ -30,7 +30,7 @@ export const users = sqliteTable(
 
 		// TODO: implement verification for registering email
 		isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
-		passwordHash: text('password_hash').notNull(),
+		passwordHash: text('password_hash'),
 		nextSeqNo: integer('next_seq_no').notNull().default(1),
 		failedLoginAttempts: integer('failed_login_attempts').notNull().default(0),
 		passwordResetToken: text('password_reset_token'),

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "4672743a-6d47-44b3-a792-3a91ba3fbb0d",
+  "id": "9762e892-1118-42a6-8f5e-7495da5b2bde",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "card_bookmarked": {
@@ -35,7 +35,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "(current_timestamp)"
+          "default": "(unixepoch() * 1000)"
         },
         "seq_no": {
           "name": "seq_no",
@@ -142,7 +142,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "(current_timestamp)"
+          "default": "(unixepoch() * 1000)"
         },
         "seq_no": {
           "name": "seq_no",
@@ -242,7 +242,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "(current_timestamp)"
+          "default": "(unixepoch() * 1000)"
         },
         "seq_no": {
           "name": "seq_no",
@@ -367,7 +367,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "(current_timestamp)"
+          "default": "(unixepoch() * 1000)"
         },
         "seq_no": {
           "name": "seq_no",
@@ -460,7 +460,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "(current_timestamp)"
+          "default": "(unixepoch() * 1000)"
         },
         "last_modified": {
           "name": "last_modified",
@@ -468,7 +468,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "(current_timestamp)"
+          "default": "(unixepoch() * 1000)"
         },
         "seq_no": {
           "name": "seq_no",
@@ -554,7 +554,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "(current_timestamp)"
+          "default": "(unixepoch() * 1000)"
         },
         "seq_no": {
           "name": "seq_no",
@@ -583,7 +583,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "(current_timestamp)"
+          "default": "(unixepoch() * 1000)"
         },
         "stability": {
           "name": "stability",
@@ -716,7 +716,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "(current_timestamp)"
+          "default": "(unixepoch() * 1000)"
         },
         "user_id": {
           "name": "user_id",
@@ -786,7 +786,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "(current_timestamp)"
+          "default": "(unixepoch() * 1000)"
         },
         "seq_no": {
           "name": "seq_no",
@@ -885,7 +885,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "(current_timestamp)"
+          "default": "(unixepoch() * 1000)"
         }
       },
       "indexes": {
@@ -948,7 +948,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "(current_timestamp)"
+          "default": "(unixepoch() * 1000)"
         },
         "seq_no": {
           "name": "seq_no",
@@ -1133,7 +1133,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "(unixepoch())"
+          "default": "(unixepoch() * 1000)"
         }
       },
       "indexes": {
@@ -1228,7 +1228,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "(current_timestamp)"
+          "default": "(unixepoch() * 1000)"
         },
         "expires_at": {
           "name": "expires_at",
@@ -1243,7 +1243,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "(current_timestamp)"
+          "default": "(unixepoch() * 1000)"
         }
       },
       "indexes": {
@@ -1290,7 +1290,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "(current_timestamp)"
+          "default": "(unixepoch() * 1000)"
         },
         "email": {
           "name": "email",
@@ -1325,7 +1325,7 @@
           "name": "password_hash",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "next_seq_no": {
