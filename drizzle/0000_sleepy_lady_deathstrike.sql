@@ -91,7 +91,8 @@ CREATE INDEX `cards_user_id_seq_no_modified_client_idx` ON `cards` (`user_id`,`s
 CREATE TABLE `clients` (
 	`id` text PRIMARY KEY NOT NULL,
 	`last_modified` integer DEFAULT (unixepoch() * 1000) NOT NULL,
-	`user_id` text NOT NULL
+	`user_id` text NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `clients_user_id_idx` ON `clients` (`user_id`,`id`);--> statement-breakpoint

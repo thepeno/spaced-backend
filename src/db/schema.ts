@@ -97,7 +97,7 @@ export const clients = sqliteTable(
 		lastModified: integer('last_modified', { mode: 'timestamp_ms' })
 			.notNull()
 			.default(sql`(unixepoch() * 1000)`),
-		userId: text('user_id').notNull(),
+		userId: text('user_id').notNull().references(() => users.id),
 	},
 	(table) => [unique('clients_user_id_idx').on(table.userId, table.id)]
 );

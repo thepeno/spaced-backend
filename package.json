@@ -9,7 +9,9 @@
     "test": "vitest",
     "cf-typegen": "wrangler types",
     "gen": "drizzle-kit generate && bash ./scripts/generate-schema.sh",
-    "schema:remote": "wrangler d1 execute spaced-backend --remote --file=./drizzle/0000_nosy_toad_men.sql"
+    "schema:remote": "wrangler d1 execute spaced-backend --remote --file=./drizzle/0000_sleepy_lady_deathstrike.sql",
+		"db:seed:remote": "wrangler d1 execute spaced-backend --remote --file=./local/spaced-prod-backup.sql",
+		"db:seed:local": "wrangler d1 execute spaced-backend --local --file=./local/spaced-prod-backup.sql"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.6.4",

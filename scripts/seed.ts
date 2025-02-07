@@ -117,10 +117,10 @@ async function main() {
 	// It's necessary to temporarily disable foreign key constraints when executing against D1
 	// because D1 runs each statement in a transaction
 	// https://developers.cloudflare.com/d1/best-practices/import-export-data/#foreign-key-constraints
-	await execAsync(`echo "PRAGMA defer_foreign_keys = true;" > ${process.env.OUTPUT_DUMP}`);
+	await execAsync(`echo "PRAGMA foreign_keys = OFF;\nPRAGMA defer_foreign_keys = true;" > ${process.env.OUTPUT_DUMP}`);
 	await execAsync(`cat temp.sql >> ${process.env.OUTPUT_DUMP}`);
-
 	await execAsync(`rm temp.sql`);
+	await execAsync(`echo "PRAGMA foreign_keys = ON;" >> ${process.env.OUTPUT_DUMP}`);
 	await execAsync(`rm ${process.env.OUTPUT_DB!}`);
 
 	console.log('Backup completed');
