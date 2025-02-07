@@ -5,18 +5,10 @@ import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { readFile } from 'fs/promises';
 import { promisify } from 'util';
-import { z } from 'zod';
 import {
-	handleCardBookmarkedOperation,
-	handleCardContentOperation,
-	handleCardDeletedOperation,
-	handleCardOperation,
-	handleCardSuspendedOperation,
-	handleDeckOperation,
-	handleReviewLogDeletedOperation,
-	handleReviewLogOperation,
-	handleUpdateDeckCardOperation,
-	opToClient2ServerOp,
+	ClientToServer,
+	operationToBatchItem,
+	opToClient2ServerOp
 } from '../src/client2server';
 import * as schema from '../src/db/schema';
 import { Operation, operationSchema } from '../src/operation';
@@ -24,6 +16,7 @@ import { schemaString } from '../test/integration/sql';
 
 dotenv.config({ path: './scripts/.env.old' });
 
+const MIGRATION_CLIENT_ID = '__spaced-migration-client_';
 const sqlite = new Database(':memory:');
 const db = drizzle(sqlite, {
 	schema,
@@ -41,77 +34,79 @@ function createTables() {
 async function main() {
 	createTables();
 
-	await db.insert(schema.users).values([
-		{
-			id: 'test-1',
-			email: 'test@email.com',
-			passwordHash: 'Xj+SO0CHAnpDOZyhr2+KAmz1n60hDmogm+9UkmLi4p0K78+RyxWVbqT0u/TsIOBP',
-		},
-		{
-			id: 'test-2',
-			email: 'test2@email.com',
-			passwordHash: 'Xj+SO0CHAnpDOZyhr2+KAmz1n60hDmogm+9UkmLi4p0K78+RyxWVbqT0u/TsIOBP',
-		},
-	]);
+	const userAccounts = JSON.parse(await readFile(process.env.ACCOUNTS_PATH!, 'utf-8'));
+	type ReadUserAccount = {
+		email: string;
+		providerAccountId: string;
+		provider: string;
+		imageUrl: string;
+		displayName: string;
+		userId: string;
+	};
 
-	await db.insert(schema.clients).values([
-		{
-			id: 'test-client-1',
-			userId: 'test-1',
-		},
-	]);
+	await db.insert(schema.users).values(
+		userAccounts.map((account: ReadUserAccount) => ({
+			id: account.userId,
+			email: account.email,
+			imageUrl: account.imageUrl,
+			displayName: account.displayName,
+		}))
+	);
 
-	const operations: Operation[] = z
-		.array(operationSchema)
-		.parse(JSON.parse(await readFile(process.env.OUTPUT_PATH!, 'utf-8')));
-	const clientOps = operations.map((op) => opToClient2ServerOp(op, 'test-1', 'test-client-1'));
+	await db.insert(schema.oauthAccounts).values(
+		userAccounts.map((account: ReadUserAccount) => ({
+			id: crypto.randomUUID(),
+			providerUserId: account.providerAccountId,
+			provider: account.provider,
+			userId: account.userId,
+		}))
+	);
 
-	const updatedSeqNo = clientOps.length + 1;
-	await db
-		.update(schema.users)
-		.set({ nextSeqNo: updatedSeqNo })
-		.where(eq(schema.users.id, 'test-1'));
+	await db.insert(schema.clients).values(
+		userAccounts.map((account: ReadUserAccount) => ({
+			id: MIGRATION_CLIENT_ID + account.userId,
+			userId: account.userId,
+		}))
+	);
 
-	for (let i = 1; i <= clientOps.length; i++) {
-		const seqNo = i;
-		const operation = clientOps[i - 1];
+	// partition the operations by user
+	const operations: ClientToServer<Operation>[] = JSON.parse(
+		await readFile(process.env.OUTPUT_PATH!, 'utf-8')
+	);
 
-		switch (operation.type) {
-			case 'card':
-				await handleCardOperation(operation, db, seqNo);
-				break;
-			case 'cardContent':
-				await handleCardContentOperation(operation, db, seqNo);
-				break;
-			case 'cardDeleted':
-				await handleCardDeletedOperation(operation, db, seqNo);
-				break;
-			case 'deck':
-				await handleDeckOperation(operation, db, seqNo);
-				break;
-			case 'updateDeckCard':
-				await handleUpdateDeckCardOperation(operation, db, seqNo);
-				break;
-			case 'cardSuspended':
-				await handleCardSuspendedOperation(operation, db, seqNo);
-				break;
-			case 'cardBookmarked':
-				await handleCardBookmarkedOperation(operation, db, seqNo);
-				break;
-			case 'reviewLog':
-				await handleReviewLogOperation(operation, db, seqNo);
-				break;
-			case 'reviewLogDeleted':
-				await handleReviewLogDeletedOperation(operation, db, seqNo);
-				break;
-			default:
-				throw new Error(`Unknown operation type: ${JSON.stringify(operation)}`);
+	const dateParsedOperations = operations.map((op, i) => {
+		const parsed = operationSchema.parse(op);
+		const originalOp = operations[i];
+
+		return {
+			...parsed,
+			userId: originalOp.userId,
+			clientId: originalOp.clientId,
+		};
+	});
+
+	const operationsByUser = dateParsedOperations.reduce((acc, op) => {
+		acc[op.userId] = [...(acc[op.userId] || []), op];
+		return acc;
+	}, {} as Record<string, ClientToServer<Operation>[]>);
+
+	for (const [userId, ops] of Object.entries(operationsByUser)) {
+		const clientOps = ops.map((op) => opToClient2ServerOp(op, userId, op.clientId));
+
+		const updatedSeqNo = clientOps.length + 1;
+		await db
+			.update(schema.users)
+			.set({ nextSeqNo: updatedSeqNo })
+			.where(eq(schema.users.id, userId));
+
+		// No batch api for sqlite3
+		const batchItems = clientOps.map((op, i) => operationToBatchItem(op, db, i + 1));
+		for (let i = 0; i < batchItems.length; i++) {
+			await batchItems[i];
 		}
 	}
 
 	console.log('Backup started');
-	// await sqlite.backup(process.env.OUTPUT_DB!);
-
 	await sqlite.backup(process.env.OUTPUT_DB!);
 
 	const execAsync = promisify(exec);

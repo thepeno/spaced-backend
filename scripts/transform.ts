@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { asc, eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/libsql';
 import { writeFile } from 'fs/promises';
+import { ClientToServer } from '../src/client2server';
 import {
 	CardContentOperation,
 	CardDeletedOperation,
@@ -35,6 +36,7 @@ async function transformReviewLogs(userId: string) {
 			stability: oldSchema.reviewLogs.stability,
 			difficulty: oldSchema.reviewLogs.difficulty,
 			elapsed_days: oldSchema.reviewLogs.elapsed_days,
+			last_elapsed_days: oldSchema.reviewLogs.last_elapsed_days,
 			scheduled_days: oldSchema.reviewLogs.scheduled_days,
 			review: oldSchema.reviewLogs.review,
 			duration: oldSchema.reviewLogs.duration,
@@ -96,9 +98,15 @@ async function transformReviewLogs(userId: string) {
 			}))
 		);
 	}
-	const globalAverageDuration = Math.round(
-		processedRuns.flat().reduce((a, b) => a + b.duration, 0) / processedRuns.flat().length
-	);
+
+	const flattenedProcessedRuns = processedRuns.flat();
+	const globalAverageDuration =
+		flattenedProcessedRuns.length > 0
+			? Math.round(
+					flattenedProcessedRuns.reduce((a, b) => a + b.duration, 0) / flattenedProcessedRuns.length
+			  )
+			: 0;
+
 	for (const run of runsOfLength1) {
 		processedRuns.push(
 			run.map((log) => ({
@@ -111,30 +119,43 @@ async function transformReviewLogs(userId: string) {
 	return processedRuns.flat().map((log) => ({
 		...log,
 		duration: log.duration || globalAverageDuration,
+		userId,
 	}));
 }
 
 const now = new Date();
 
+const MIGRATION_CLIENT_ID = '__spaced-migration-client_';
+
 async function main() {
-	const user = await oldDb.query.users.findFirst({
-		where: eq(oldSchema.users.email, process.env.EMAIL!),
-	});
+	// First dump user account info
+	const userAccounts = await oldDb
+		.select()
+		.from(oldSchema.users)
+		.innerJoin(oldSchema.accounts, eq(oldSchema.users.id, oldSchema.accounts.userId));
 
-	if (!user) {
-		throw new Error('User not found');
-	}
+	const userAccountsData = userAccounts.map(({ user, account }) => ({
+		email: user.email,
+		providerAccountId: account.providerAccountId,
+		provider: account.provider,
+		imageUrl: user.image,
+		displayName: user.name,
+		userId: user.id,
+	}));
 
+	await writeFile(process.env.ACCOUNTS_PATH!, JSON.stringify(userAccountsData, null, 2));
+
+	// Now process cards and operations for all users
 	const cardWithContents = await oldDb
 		.select()
 		.from(oldSchema.cards)
-		.innerJoin(oldSchema.cardContents, eq(oldSchema.cards.id, oldSchema.cardContents.cardId))
-		.where(eq(oldSchema.cards.userId, user.id));
+		.innerJoin(oldSchema.cardContents, eq(oldSchema.cards.id, oldSchema.cardContents.cardId));
 
 	const cardOperations = cardWithContents.map(({ cards }) => ({
 		type: 'card',
 		payload: {
 			id: cards.id,
+			userId: cards.userId,
 			due: new Date(cards.due),
 			stability: cards.stability,
 			difficulty: cards.difficulty,
@@ -146,7 +167,9 @@ async function main() {
 			last_review: cards.last_review ? new Date(cards.last_review) : null,
 		},
 		timestamp: now.getTime(),
-	})) satisfies CardOperation[];
+		userId: cards.userId,
+		clientId: MIGRATION_CLIENT_ID + cards.userId,
+	})) satisfies ClientToServer<CardOperation>[];
 
 	const cardContentOperations = cardWithContents.map(({ cards, card_contents }) => ({
 		type: 'cardContent',
@@ -156,7 +179,9 @@ async function main() {
 			back: card_contents.answer,
 		},
 		timestamp: now.getTime(),
-	})) satisfies CardContentOperation[];
+		userId: cards.userId,
+		clientId: MIGRATION_CLIENT_ID + cards.userId,
+	})) satisfies ClientToServer<CardContentOperation>[];
 
 	// Only included the deleted cards that were actually deleted
 	const cardDeletedOperations = cardWithContents
@@ -165,10 +190,13 @@ async function main() {
 			type: 'cardDeleted',
 			payload: {
 				cardId: cards.id,
+				userId: cards.userId,
 				deleted: cards.deleted,
 			},
 			timestamp: now.getTime(),
-		})) satisfies CardDeletedOperation[];
+			userId: cards.userId,
+			clientId: MIGRATION_CLIENT_ID + cards.userId,
+		})) satisfies ClientToServer<CardDeletedOperation>[];
 
 	// Only included the suspended cards that were actually suspended before
 	const DELTA = 5000;
@@ -178,44 +206,56 @@ async function main() {
 			type: 'cardSuspended',
 			payload: {
 				cardId: cards.id,
+				userId: cards.userId,
 				suspended: cards.suspended,
 			},
 			timestamp: now.getTime(),
-		})) satisfies CardSuspendedOperation[];
+			userId: cards.userId,
+			clientId: MIGRATION_CLIENT_ID + cards.userId,
+		})) satisfies ClientToServer<CardSuspendedOperation>[];
 
-	const decks = await oldDb.query.decks.findMany({
-		where: eq(oldSchema.decks.userId, user.id),
-	});
+	const decks = await oldDb.query.decks.findMany();
 
 	const deckOperations = decks.map((deck) => ({
 		type: 'deck',
 		payload: {
 			id: deck.id,
+			userId: deck.userId,
 			name: deck.name,
 			deleted: deck.deleted,
 			description: deck.description,
 		},
 		timestamp: now.getTime(),
-	})) satisfies DeckOperation[];
+		userId: deck.userId,
+		clientId: MIGRATION_CLIENT_ID + deck.userId,
+	})) satisfies ClientToServer<DeckOperation>[];
 
 	const cardDecks = await oldDb
 		.select()
 		.from(oldSchema.cardsToDecks)
-		.innerJoin(oldSchema.cards, eq(oldSchema.cardsToDecks.cardId, oldSchema.cards.id))
-		.where(eq(oldSchema.cards.userId, user.id));
+		.innerJoin(oldSchema.cards, eq(oldSchema.cardsToDecks.cardId, oldSchema.cards.id));
 
 	const updateDeckCardOperations = cardDecks.map(({ cards, cards_to_decks }) => ({
 		type: 'updateDeckCard',
 		payload: {
 			deckId: cards_to_decks.deckId,
 			cardId: cards.id,
+			userId: cards.userId,
 			clCount: 1,
 		},
 		timestamp: now.getTime(),
-	})) satisfies UpdateDeckCardOperation[];
+		userId: cards.userId,
+		clientId: MIGRATION_CLIENT_ID + cards.userId,
+	})) satisfies ClientToServer<UpdateDeckCardOperation>[];
 
-	const reviewLogs = await transformReviewLogs(user.id);
-	const reviewLogOperations = reviewLogs.map((reviewLog) => ({
+	// Get all review logs for all users
+	const allReviewLogs: (typeof oldSchema.reviewLogs.$inferSelect & { userId: string })[] = [];
+	for (const { user } of userAccounts) {
+		const userReviewLogs = await transformReviewLogs(user.id);
+		allReviewLogs.push(...userReviewLogs);
+	}
+
+	const reviewLogOperations = allReviewLogs.map((reviewLog) => ({
 		type: 'reviewLog',
 		payload: {
 			id: reviewLog.id,
@@ -235,19 +275,24 @@ async function main() {
 
 			createdAt: reviewLog.createdAt,
 		},
+		userId: reviewLog.userId,
+		clientId: MIGRATION_CLIENT_ID + reviewLog.userId,
 		timestamp: now.getTime(),
-	})) satisfies ReviewLogOperation[];
+	})) satisfies ClientToServer<ReviewLogOperation>[];
 
-	const reviewLogDeletedOperations = reviewLogs
+	const reviewLogDeletedOperations = allReviewLogs
 		.filter((reviewLog) => reviewLog.deleted)
 		.map((reviewLog) => ({
 			type: 'reviewLogDeleted',
 			payload: {
 				reviewLogId: reviewLog.id,
+				userId: reviewLog.userId,
 				deleted: true,
 			},
 			timestamp: now.getTime(),
-		})) satisfies ReviewLogDeletedOperation[];
+			userId: reviewLog.userId,
+			clientId: MIGRATION_CLIENT_ID + reviewLog.userId,
+		})) satisfies ClientToServer<ReviewLogDeletedOperation>[];
 
 	const allOperations: Operation[] = [
 		...cardOperations,
