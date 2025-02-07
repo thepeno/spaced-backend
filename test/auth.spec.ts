@@ -1,11 +1,18 @@
 // test/index.spec.ts
 import { SESSION_COOKIE_NAME, USER_ALREADY_EXISTS_ERROR_MSG } from '@/auth';
+import * as google from '@/auth/google';
 import * as schema from '@/db/schema';
 import { env, SELF } from 'cloudflare:test';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
-import { createTestUsers, loginTestUser, testUserCredentials } from 'test/integration/utils';
-import { beforeEach, describe, expect, it } from 'vitest';
+import {
+	createTestUsers,
+	loginTestUser,
+	testGooglePayload,
+	testOAuthUser,
+	testUserCredentials,
+} from 'test/integration/utils';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 beforeEach(async () => {
 	await createTestUsers();
@@ -134,6 +141,101 @@ describe('auth', () => {
 			expect(await response.json()).toMatchObject({
 				success: false,
 			});
+		});
+
+		it('returns false if user has not set a password (oauth)', async () => {
+			const response = await SELF.fetch('http://localhost:3000/api/auth/login', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ email: testOAuthUser.email, password: 'password' }),
+			});
+
+			expect(response.status).toBe(401);
+			expect(await response.json()).toMatchObject({
+				success: false,
+			});
+		});
+	});
+
+	describe('/auth/google', async () => {
+		it('can login a user with google', async () => {
+			const spy = vi.spyOn(google, 'extractGooglePayload');
+			spy.mockResolvedValue(testGooglePayload);
+
+			const response = await SELF.fetch('http://localhost:3000/api/auth/google', {
+				method: 'POST',
+				headers: {
+					'Content-Type': `application/x-www-form-urlencoded`,
+				},
+				body: `credential=test-credential`,
+				redirect: 'manual',
+			});
+			expect(response.status).toBe(302);
+			expect(response.headers.get('Location')).toMatch(/\/login-success\?clientId=.+$/);
+		});
+
+		it('creates a new user for google', async () => {
+			const spy = vi.spyOn(google, 'extractGooglePayload');
+			spy.mockResolvedValue({
+				email: 'new-oauth-user@gmail.com',
+				email_verified: true,
+				sub: 'test-sub',
+				iss: 'https://accounts.google.com',
+				aud: 'test-aud',
+				exp: 1717171717,
+				iat: 1717171717,
+				name: 'Test User',
+				picture: 'https://example.com/picture.png',
+				given_name: 'Test',
+				family_name: 'User',
+				locale: 'en',
+			});
+
+			const response = await SELF.fetch('http://localhost:3000/api/auth/google', {
+				method: 'POST',
+				body: `credential=test-credential`,
+				headers: {
+					'Content-Type': `application/x-www-form-urlencoded`,
+				},
+				redirect: 'manual',
+			});
+
+			expect(response.status).toBe(302);
+			expect(response.headers.get('Location')).toMatch(/\/login-success\?clientId=.+$/);
+		});
+
+		it('adds the oauth account to an existing password user', async () => {
+			const spy = vi.spyOn(google, 'extractGooglePayload');
+			spy.mockResolvedValue({
+				...testGooglePayload,
+				email: testUserCredentials.email,
+				sub: 'new-oauth-account-test-sub',
+			});
+
+			const response = await SELF.fetch('http://localhost:3000/api/auth/google', {
+				method: 'POST',
+				body: `credential=test-credential`,
+				headers: {
+					'Content-Type': `application/x-www-form-urlencoded`,
+				},
+				redirect: 'manual',
+			});
+
+			expect(response.status).toBe(302);
+			expect(response.headers.get('Location')).toMatch(/\/login-success\?clientId=.+$/);
+
+			const oauthAccount = await db.query.oauthAccounts.findFirst({
+				where: eq(schema.oauthAccounts.providerUserId, 'new-oauth-account-test-sub'),
+			});
+			expect(oauthAccount).toBeDefined();
+
+			const user = await db.query.users.findFirst({
+				where: eq(schema.users.email, testUserCredentials.email),
+			});
+			expect(user?.imageUrl).toBeDefined();
+			expect(user?.imageUrl).toBe(testGooglePayload.picture);
 		});
 	});
 

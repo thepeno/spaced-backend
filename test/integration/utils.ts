@@ -1,3 +1,4 @@
+import { GooglePayload } from '@/auth/google';
 import { handleClientOperation } from '@/client2server';
 import * as schema from '@/db/schema';
 import { env, SELF } from 'cloudflare:test';
@@ -17,16 +18,38 @@ export const testUser2Credentials = {
 	password: testUserPassword,
 } as const;
 
+export const testOAuthUser = {
+	id: 'test-oauth',
+	email: 'test-oauth@email.com',
+	providerUserId: 'test-oauth-user-id',
+	provider: 'google',
+} as const;
+
+export const testGooglePayload: GooglePayload = {
+	email: testOAuthUser.email,
+	email_verified: true,
+	sub: testOAuthUser.providerUserId,
+	iss: 'https://accounts.google.com',
+	aud: '421029814925-ogt7pqsgo2j7f1bnjajk02aiasrcrf2f.apps.googleusercontent.com',
+	exp: 1717171717,
+	iat: 1717171717,
+	name: 'Test User',
+	picture: 'https://example.com/picture.png',
+	given_name: 'Test',
+	family_name: 'User',
+	locale: 'en',
+};
+
 export const testUser = {
 	id: 'test',
 	email: testUserEmail,
-	passwordHash: 'Xj+SO0CHAnpDOZyhr2+KAmz1n60hDmogm+9UkmLi4p0K78+RyxWVbqT0u/TsIOBP',
+	passwordHash: 'Xj+SO0CHAnpDOZyhr2+KAojZiIxA+ns2Oa3M8/uCxACqqWLH6PfCNTuEtuBfyUmt',
 } satisfies schema.NewUser;
 
 export const testUser2 = {
 	id: 'test2',
 	email: testUser2Email,
-	passwordHash: 'Xj+SO0CHAnpDOZyhr2+KAmz1n60hDmogm+9UkmLi4p0K78+RyxWVbqT0u/TsIOBP',
+	passwordHash: 'Xj+SO0CHAnpDOZyhr2+KAojZiIxA+ns2Oa3M8/uCxACqqWLH6PfCNTuEtuBfyUmt',
 } satisfies schema.NewUser;
 
 export const testClientId = 'test-1';
@@ -38,11 +61,30 @@ export async function createTestUsers(): Promise<schema.User> {
 		schema,
 	});
 
-	const [user, user2] = await db.insert(schema.users).values([testUser, testUser2]).returning();
+	const [user, user2] = await db
+		.insert(schema.users)
+		.values([
+			testUser,
+			testUser2,
+			{
+				id: testOAuthUser.id,
+				email: testOAuthUser.email,
+			},
+		])
+		.returning();
 
 	if (!user) {
 		throw new Error('Failed to create user');
 	}
+
+	await db.insert(schema.oauthAccounts).values([
+		{
+			id: testOAuthUser.id,
+			userId: testOAuthUser.id,
+			provider: testOAuthUser.provider,
+			providerUserId: testOAuthUser.providerUserId,
+		},
+	]);
 
 	await db.insert(schema.clients).values([
 		{

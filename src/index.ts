@@ -97,7 +97,8 @@ app.post(
 			});
 		}
 
-		const cookieOptions = c.env.WORKER_ENV === 'local' ? makeDevCookieOptions() : makeProdCookieOptions();
+		const cookieOptions =
+			c.env.WORKER_ENV === 'local' ? makeDevCookieOptions() : makeProdCookieOptions();
 		setSignedCookie(
 			c,
 			SESSION_COOKIE_NAME,
@@ -138,6 +139,17 @@ app.post(
 			});
 		}
 
+		if (!user.passwordHash) {
+			logger.info(
+				{ email: redactEmail(email) },
+				'Login request failed: user has not set a password'
+			);
+			c.status(401);
+			return c.json({
+				success: false,
+			});
+		}
+
 		const valid = await verifyPassword(user.passwordHash, password);
 
 		if (!valid) {
@@ -158,7 +170,8 @@ app.post(
 			});
 		}
 
-		const cookieOptions = c.env.WORKER_ENV === 'local' ? makeDevCookieOptions() : makeProdCookieOptions();
+		const cookieOptions =
+			c.env.WORKER_ENV === 'local' ? makeDevCookieOptions() : makeProdCookieOptions();
 		setSignedCookie(
 			c,
 			SESSION_COOKIE_NAME,
@@ -242,6 +255,10 @@ app.post('/auth/google', async (c) => {
 	const createOrSignInGoogleUserResult = await createOrSignInGoogleUser(db, payload);
 
 	if (!createOrSignInGoogleUserResult.success) {
+		logger.error(
+			{ email: redactEmail(payload.email), providerUserId: payload.sub },
+			'createOrSignInGoogleUserResult failed'
+		);
 		return c.json({
 			success: false,
 		});
@@ -250,12 +267,17 @@ app.post('/auth/google', async (c) => {
 	const createSessionResult = await createSession(db, createOrSignInGoogleUserResult.user.id);
 
 	if (!createSessionResult.success) {
+		logger.error(
+			{ email: redactEmail(payload.email), providerUserId: payload.sub },
+			'createSessionResult failed'
+		);
 		return c.json({
 			success: false,
 		});
 	}
 
-	const cookieOptions = c.env.WORKER_ENV === 'local' ? makeDevCookieOptions() : makeProdCookieOptions();
+	const cookieOptions =
+		c.env.WORKER_ENV === 'local' ? makeDevCookieOptions() : makeProdCookieOptions();
 	setSignedCookie(
 		c,
 		SESSION_COOKIE_NAME,
