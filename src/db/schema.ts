@@ -17,6 +17,26 @@ export type State = (typeof states)[number];
 export const ratings = ['Manual', 'Easy', 'Good', 'Hard', 'Again'] as const;
 export type Rating = (typeof ratings)[number];
 
+export const tempUsers = sqliteTable(
+	'temp_users',
+	{
+		id: text('id').primaryKey(),
+		email: text('email').notNull(),
+		passwordHash: text('password_hash').notNull(),
+		createdAt: integer('created_at', { mode: 'timestamp_ms' })
+			.notNull()
+			.default(sql`(unixepoch() * 1000)`),
+		token: text('token').notNull(),
+		tokenExpiresAt: integer('token_expires_at', { mode: 'timestamp_ms' }).notNull(),
+		lastEmailSentAt: integer('last_email_sent_at', { mode: 'timestamp_ms' })
+			.default(sql`(unixepoch() * 1000)`)
+			.notNull(),
+	},
+	(table) => [uniqueIndex('temp_users_email_idx').on(table.email)]
+);
+
+export type TempUser = typeof tempUsers.$inferSelect;
+
 export const users = sqliteTable(
 	'users',
 	{
@@ -28,7 +48,6 @@ export const users = sqliteTable(
 		imageUrl: text('image_url'),
 		displayName: text('display_name'),
 
-		// TODO: implement verification for registering email
 		isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
 		passwordHash: text('password_hash'),
 		nextSeqNo: integer('next_seq_no').notNull().default(1),
@@ -97,7 +116,9 @@ export const clients = sqliteTable(
 		lastModified: integer('last_modified', { mode: 'timestamp_ms' })
 			.notNull()
 			.default(sql`(unixepoch() * 1000)`),
-		userId: text('user_id').notNull().references(() => users.id),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id),
 	},
 	(table) => [unique('clients_user_id_idx').on(table.userId, table.id)]
 );
@@ -395,8 +416,7 @@ export const cardDecks = sqliteTable(
 	{
 		userId: text('user_id').notNull(),
 		cardId: text('card_id').notNull(),
-		deckId: text('deck_id')
-			.notNull(),
+		deckId: text('deck_id').notNull(),
 		lastModified: integer('last_modified', { mode: 'timestamp_ms' })
 			.notNull()
 			.default(sql`(unixepoch() * 1000)`),
