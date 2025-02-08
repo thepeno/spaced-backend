@@ -13,6 +13,9 @@ export default defineWorkersConfig({
 		},
 		include: ['test/**/*.test.ts', 'test/**/*.spec.ts'],
 		setupFiles: ['test/integration/setup.ts'],
+		alias: {
+			'@': new URL('./src', import.meta.url).pathname,
+		},
 	},
 	plugins: [tsconfigPaths()],
 });

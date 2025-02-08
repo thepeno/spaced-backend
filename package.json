@@ -10,8 +10,8 @@
     "cf-typegen": "wrangler types",
     "gen": "drizzle-kit generate && bash ./scripts/generate-schema.sh",
     "schema:remote": "wrangler d1 execute spaced-backend --remote --file=./drizzle/0000_sleepy_lady_deathstrike.sql",
-		"db:seed:remote": "wrangler d1 execute spaced-backend --remote --file=./local/spaced-prod-backup.sql",
-		"db:seed:local": "wrangler d1 execute spaced-backend --local --file=./local/spaced-prod-backup.sql"
+    "db:seed:remote": "wrangler d1 execute spaced-backend --remote --file=./local/spaced-prod-backup.sql",
+    "db:seed:local": "wrangler d1 execute spaced-backend --local --file=./local/spaced-prod-backup.sql"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.6.4",
@@ -36,6 +36,7 @@
     "jose": "^5.9.6",
     "nanoid": "^5.0.9",
     "pino": "^9.6.0",
+    "resend": "^4.1.2",
     "vite-tsconfig-paths": "^5.1.4",
     "zod": "^3.24.1"
   }

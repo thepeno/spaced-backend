@@ -3,18 +3,32 @@
 
 import { DB } from '@/db';
 import * as schema from '@/db/schema';
-import { User } from '@/db/schema';
+import { TempUser, User } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 export const SESSION_COOKIE_NAME = 'sid';
 export const COOKIE_EXPIRATION_TIME_MS = 1000 * 60 * 60 * 24 * 30;
+
+const TOKEN_EXPIRATION_TIME_MS = 1000 * 60 * 60; // 1 hour
+
+// Basic token generator
+// This is fine for our flashcard app...
+async function generateToken(): Promise<string> {
+	return crypto.randomUUID().split('-')[0].toUpperCase();
+}
 
 // It's a good start for a hobby project
 export async function hashPassword(password: string, providedSalt?: Uint8Array): Promise<string> {
 	const encoder = new TextEncoder();
 	const salt = providedSalt || crypto.getRandomValues(new Uint8Array(16));
 
-	const keyMaterial = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']);
+	const keyMaterial = await crypto.subtle.importKey(
+		'raw',
+		encoder.encode(password),
+		'PBKDF2',
+		false,
+		['deriveBits']
+	);
 
 	const hash = await crypto.subtle.deriveBits(
 		{
@@ -36,7 +50,10 @@ export async function hashPassword(password: string, providedSalt?: Uint8Array):
 	return btoa(String.fromCharCode(...combined));
 }
 
-export async function verifyPassword(storedHash: string, passwordAttempt: string): Promise<boolean> {
+export async function verifyPassword(
+	storedHash: string,
+	passwordAttempt: string
+): Promise<boolean> {
 	try {
 		// Decode from base64
 		const combined = new Uint8Array(
@@ -71,17 +88,21 @@ export async function verifyPassword(storedHash: string, passwordAttempt: string
 
 export const USER_ALREADY_EXISTS_ERROR_MSG = 'User already exists';
 
-type CreateUserResult =
+type CreateTempUserResult =
 	| {
 			success: true;
-			user: User;
+			tempUser: TempUser;
 	  }
 	| {
 			success: false;
 			error: string;
 	  };
 
-export async function createUser(db: DB, email: string, password: string): Promise<CreateUserResult> {
+export async function createTempUser(
+	db: DB,
+	email: string,
+	password: string
+): Promise<CreateTempUserResult> {
 	const existingUser = await db.query.users.findFirst({
 		where: eq(schema.users.email, email),
 	});
@@ -94,19 +115,32 @@ export async function createUser(db: DB, email: string, password: string): Promi
 	}
 
 	const passwordHash = await hashPassword(password);
+	const token = await generateToken();
 
-	const [user] = await db
-		.insert(schema.users)
+	const [tempUser] = await db
+		.insert(schema.tempUsers)
 		.values({
 			id: crypto.randomUUID(),
 			email,
 			passwordHash,
+			token,
+			tokenExpiresAt: new Date(Date.now() + TOKEN_EXPIRATION_TIME_MS),
+			lastEmailSentAt: new Date(),
+		})
+		.onConflictDoUpdate({
+			target: schema.tempUsers.email,
+			set: {
+				passwordHash,
+				token,
+				tokenExpiresAt: new Date(Date.now() + TOKEN_EXPIRATION_TIME_MS),
+				lastEmailSentAt: new Date(),
+			},
 		})
 		.returning();
 
 	return {
 		success: true,
-		user,
+		tempUser,
 	};
 }
 
@@ -120,6 +154,39 @@ export async function getUser(db: DB, email: string): Promise<User | null> {
 	}
 
 	return user;
+}
+
+export async function getTempUser(db: DB, email: string): Promise<TempUser | null> {
+	const tempUser = await db.query.tempUsers.findFirst({
+		where: eq(schema.tempUsers.email, email),
+	});
+
+	if (!tempUser) {
+		return null;
+	}
+
+	return tempUser;
+}
+
+export async function updateTempUserLastEmailSentAt(db: DB, email: string) {
+	const results = await db
+		.update(schema.tempUsers)
+		.set({
+			lastEmailSentAt: new Date(),
+		})
+		.where(eq(schema.tempUsers.email, email))
+		.returning();
+
+	if (results.length === 0) {
+		return {
+			success: false,
+			error: 'Temp user not found',
+		};
+	}
+
+	return {
+		success: true,
+	};
 }
 
 type CreateSessionResult =
@@ -169,8 +236,15 @@ type InvalidateSessionResult =
 
 const INVALIDATE_SESSION_NOT_FOUND_ERROR_MSG = 'Session not found';
 
-export async function invalidateSession(db: DB, sessionId: string): Promise<InvalidateSessionResult> {
-	const results = await db.update(schema.sessions).set({ valid: false }).where(eq(schema.sessions.id, sessionId)).returning();
+export async function invalidateSession(
+	db: DB,
+	sessionId: string
+): Promise<InvalidateSessionResult> {
+	const results = await db
+		.update(schema.sessions)
+		.set({ valid: false })
+		.where(eq(schema.sessions.id, sessionId))
+		.returning();
 
 	if (results.length === 0) {
 		return {

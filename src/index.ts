@@ -1,12 +1,20 @@
 import {
 	COOKIE_EXPIRATION_TIME_MS,
 	createSession,
-	createUser,
+	createTempUser,
+	getTempUser,
 	getUser,
 	invalidateSession,
 	SESSION_COOKIE_NAME,
+	updateTempUserLastEmailSentAt,
 	verifyPassword,
 } from '@/auth';
+import {
+	createUserFromTempUser,
+	isTimeToResendEmail,
+	sendEmailVerifyEmail,
+	verifyEmail,
+} from '@/auth/email-verify';
 import { createOrSignInGoogleUser, extractGooglePayload } from '@/auth/google';
 import { handleClientOperations, opToClient2ServerOp, validateOpCount } from '@/client2server';
 import { createClientId } from '@/clientid';
@@ -79,18 +87,119 @@ app.post(
 			schema,
 		});
 
-		const createUserResult = await createUser(db, email, password);
+		const createTempUserResult = await createTempUser(db, email, password);
 
-		if (!createUserResult.success) {
+		if (!createTempUserResult.success) {
+			logger.info({ email, error: createTempUserResult.error }, 'createTempUserResult failed');
 			return c.json({
 				success: false,
-				error: createUserResult.error,
+				error: createTempUserResult.error,
 			});
 		}
 
-		const createSessionResult = await createSession(db, createUserResult.user.id);
+		const sendEmailVerifyEmailResult = await sendEmailVerifyEmail(
+			email,
+			createTempUserResult.tempUser.token,
+			c.env.RESEND_API_KEY,
+			c.env.WORKER_ENV
+		);
+
+		if (!sendEmailVerifyEmailResult.success) {
+			logger.info(
+				{ email: redactEmail(email), error: sendEmailVerifyEmailResult.error },
+				'sendEmailVerifyEmailResult failed'
+			);
+			return c.json({
+				success: false,
+				error: sendEmailVerifyEmailResult.error,
+			});
+		}
+
+		const updateTempUserLastEmailSentAtResult = await updateTempUserLastEmailSentAt(db, email);
+		if (!updateTempUserLastEmailSentAtResult.success) {
+			logger.info(
+				{ email: redactEmail(email), error: updateTempUserLastEmailSentAtResult.error },
+				'updateTempUserLastEmailSentAtResult failed'
+			);
+			return c.json({
+				success: false,
+				error: updateTempUserLastEmailSentAtResult.error,
+			});
+		}
+
+		logger.info({ email: redactEmail(email) }, 'register request successful');
+		return c.json({
+			success: true,
+		});
+	}
+);
+
+app.post(
+	'/auth/verify',
+	zValidator(
+		'json',
+		z.object({
+			email: z.string().email(),
+			token: z.string(),
+		})
+	),
+	async (c) => {
+		const { email, token } = c.req.valid('json');
+
+		logger.info({ email: redactEmail(email), token }, 'verify request');
+		const db = drizzle(c.env.D1, {
+			schema,
+		});
+
+		const user = await getUser(db, email);
+
+		if (user) {
+			logger.info({ email: redactEmail(email) }, 'verify request failed: user already verified');
+			return c.json({
+				success: false,
+				error: 'User already verified',
+			});
+		}
+
+		const tempUser = await getTempUser(db, email);
+		if (!tempUser) {
+			logger.info({ email: redactEmail(email) }, 'verify request failed: temp user not found');
+			return c.json({
+				success: false,
+				error: 'User not found',
+			});
+		}
+
+		const verifyEmailResult = await verifyEmail(tempUser, token);
+
+		if (!verifyEmailResult.success) {
+			logger.info({ email: redactEmail(email), error: verifyEmailResult.error }, 'verify request failed: verifyEmailResult failed');
+			return c.json({
+				success: false,
+				error: verifyEmailResult.error,
+			});
+		}
+
+		const createUserFromTempUserResult = await createUserFromTempUser(db, tempUser);
+
+		if (!createUserFromTempUserResult.success) {
+			logger.info(
+				{ email: redactEmail(email), error: createUserFromTempUserResult.error },
+				'verify request failed: createUserFromTempUserResult failed'
+			);
+			return c.json({
+				success: false,
+				error: createUserFromTempUserResult.error,
+			});
+		}
+
+		const createSessionResult = await createSession(db, tempUser.id);
 
 		if (!createSessionResult.success) {
+			logger.info(
+				{ email: redactEmail(email), error: createSessionResult.error },
+				'verify request failed: createSessionResult failed'
+			);
 			return c.json({
 				success: false,
 				error: createSessionResult.error,
@@ -106,6 +215,55 @@ app.post(
 			c.env.COOKIE_SECRET,
 			cookieOptions
 		);
+
+		logger.info({ email: redactEmail(email) }, 'verify request successful');
+		return c.json({
+			success: true,
+		});
+	}
+);
+
+app.post(
+	'/auth/resend-email',
+	zValidator(
+		'json',
+		z.object({
+			email: z.string().email(),
+		})
+	),
+	async (c) => {
+		const { email } = c.req.valid('json');
+		const db = drizzle(c.env.D1, {
+			schema,
+		});
+
+		const tempUser = await getTempUser(db, email);
+		if (!tempUser) {
+			return c.json({
+				success: false,
+				error: 'User not found',
+			});
+		}
+
+		if (!isTimeToResendEmail(tempUser.lastEmailSentAt)) {
+			return c.json({
+				success: false,
+				error: 'Not enough time has passed',
+			});
+		}
+
+		const sendEmailVerifyEmailResult = await sendEmailVerifyEmail(
+			email,
+			tempUser.token,
+			c.env.RESEND_API_KEY,
+			c.env.WORKER_ENV
+		);
+		if (!sendEmailVerifyEmailResult.success) {
+			return c.json({
+				success: false,
+				error: sendEmailVerifyEmailResult.error,
+			});
+		}
 
 		return c.json({
 			success: true,

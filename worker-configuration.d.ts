@@ -4,6 +4,7 @@ interface Env {
 	WORKER_ENV: "production" | "local";
 	FRONTEND_ORIGIN: "https://spaced2.zsheng.app" | "http://localhost:5173";
 	COOKIE_SECRET: string;
+	RESEND_API_KEY: string;
 	D1: D1Database;
 }
 

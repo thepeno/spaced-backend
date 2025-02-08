@@ -16,6 +16,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 beforeEach(async () => {
 	await createTestUsers();
+	vi.resetAllMocks();
 });
 
 const db = drizzle(env.D1, {
@@ -44,6 +45,19 @@ describe('auth', () => {
 			expect(await response.json()).toMatchObject({
 				success: true,
 			});
+
+			const drizzleDb = drizzle(env.D1, {
+				schema,
+			});
+
+			const tempUser = await drizzleDb.query.tempUsers.findFirst({
+				where: eq(schema.tempUsers.email, 'test@example.com'),
+			});
+			expect(tempUser).toBeDefined();
+			expect(tempUser?.email).toBe('test@example.com');
+			expect(tempUser?.passwordHash).toBeDefined();
+			expect(tempUser?.token).toBeDefined();
+			expect(tempUser?.tokenExpiresAt?.getTime()).toBeGreaterThan(Date.now());
 		});
 
 		it('returns error if password is too short', async () => {
@@ -85,23 +99,111 @@ describe('auth', () => {
 				error: USER_ALREADY_EXISTS_ERROR_MSG,
 			});
 		});
+	});
 
-		it('sets a cookie if registration is successful', async () => {
-			const response = await SELF.fetch('http://localhost:3000/api/auth/register', {
+	describe('/verify	', () => {
+		const tempUserEmail = 'test@temp-email.com';
+		beforeEach(async () => {
+			await db.insert(schema.tempUsers).values({
+				id: 'test-temp-user',
+				email: tempUserEmail,
+				passwordHash: 'password',
+				token: 'test-token',
+				tokenExpiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+			});
+		});
+
+		it('can verify a user', async () => {
+			const response = await SELF.fetch('http://localhost:3000/api/auth/verify', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify({ email: 'test@example.com', password: 'password' }),
+				body: JSON.stringify({ email: tempUserEmail, token: 'test-token' }),
 			});
 
 			expect(response.status).toBe(200);
+			expect(await response.json()).toMatchObject({
+				success: true,
+			});
+			// cookie should be set
 			expect(response.headers.get('Set-Cookie')).toContain(SESSION_COOKIE_NAME);
 			expect(response.headers.get('Set-Cookie')).toContain('HttpOnly');
 			expect(response.headers.get('Set-Cookie')).toContain('Secure');
 
 			const sid = response.headers.get('Set-Cookie')?.split(';')[0].split('=')[1];
 			expect(sid).toBeTruthy();
+		});
+
+		it('returns error if user is already verified', async () => {
+			const response = await SELF.fetch('http://localhost:3000/api/auth/verify', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ email: testUserCredentials.email, token: 'test-token' }),
+			});
+
+			expect(response.status).toBe(200);
+			expect(await response.json()).toMatchObject({
+				success: false,
+				error: 'User already verified',
+			});
+		});
+
+		it('returns error if temp user does not exist', async () => {
+			const response = await SELF.fetch('http://localhost:3000/api/auth/verify', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ email: 'nonexistent@example.com', token: 'test-token' }),
+			});
+
+			expect(response.status).toBe(200);
+			expect(await response.json()).toMatchObject({
+				success: false,
+				error: 'User not found',
+			});
+		});
+
+		it('returns error if token is invalid', async () => {
+			const response = await SELF.fetch('http://localhost:3000/api/auth/verify', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ email: tempUserEmail, token: 'invalid-token' }),
+			});
+
+			expect(response.status).toBe(200);
+			expect(await response.json()).toMatchObject({
+				success: false,
+				error: 'Invalid token',
+			});
+		});
+
+		it('returns error if token has expired', async () => {
+			await db
+				.update(schema.tempUsers)
+				.set({
+					tokenExpiresAt: new Date(Date.now() - 10000),
+				})
+				.where(eq(schema.tempUsers.email, tempUserEmail));
+
+			const response = await SELF.fetch('http://localhost:3000/api/auth/verify', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ email: tempUserEmail, token: 'expired-token' }),
+			});
+
+			expect(response.status).toBe(200);
+			expect(await response.json()).toMatchObject({
+				success: false,
+				error: 'Token expired',
+			});
 		});
 	});
 
@@ -157,6 +259,29 @@ describe('auth', () => {
 				success: false,
 			});
 		});
+
+		it('returns false if user is a temp user', async () => {
+			await db.insert(schema.tempUsers).values({
+				id: 'test-temp-user',
+				email: 'test@temp-email.com',
+				passwordHash: 'password',
+				token: 'test-token',
+				tokenExpiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+			});
+
+			const response = await SELF.fetch('http://localhost:3000/api/auth/login', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ email: 'test@temp-email.com', password: 'password' }),
+			});
+
+			expect(response.status).toBe(401);
+			expect(await response.json()).toMatchObject({
+				success: false,
+			});
+		});;
 	});
 
 	describe('/auth/google', async () => {
