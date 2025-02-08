@@ -173,7 +173,10 @@ app.post(
 		const verifyEmailResult = await verifyEmail(tempUser, token);
 
 		if (!verifyEmailResult.success) {
-			logger.info({ email: redactEmail(email), error: verifyEmailResult.error }, 'verify request failed: verifyEmailResult failed');
+			logger.info(
+				{ email: redactEmail(email), error: verifyEmailResult.error },
+				'verify request failed: verifyEmailResult failed'
+			);
 			return c.json({
 				success: false,
 				error: verifyEmailResult.error,
@@ -290,6 +293,16 @@ app.post(
 		const user = await getUser(db, email);
 
 		if (!user) {
+			const tempUser = await getTempUser(db, email);
+			if (tempUser) {
+				logger.info({ email: redactEmail(email) }, 'Login request failed: temp user found');
+				c.status(401);
+				return c.json({
+					success: false,
+					isTempUser: true,
+				});
+			}
+
 			logger.info({ email: redactEmail(email) }, 'Login request failed: user not found');
 			c.status(401);
 			return c.json({

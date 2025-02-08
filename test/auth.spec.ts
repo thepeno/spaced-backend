@@ -280,6 +280,7 @@ describe('auth', () => {
 			expect(response.status).toBe(401);
 			expect(await response.json()).toMatchObject({
 				success: false,
+				isTempUser: true,
 			});
 		});;
 	});
