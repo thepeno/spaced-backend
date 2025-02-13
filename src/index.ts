@@ -23,17 +23,18 @@ import { clientIdMiddleware } from '@/middleware/clientid';
 import { sessionMiddleware } from '@/middleware/session';
 import { operationSchema } from '@/operation';
 import { getAllOpsFromSeqNoExclClient } from '@/server2client';
+import { generateFileKey, isValidUploadFileType } from '@/upload';
 import { redactEmail } from '@/utils';
 import { zValidator } from '@hono/zod-validator';
 import { drizzle } from 'drizzle-orm/d1';
 import { Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { deleteCookie, getSignedCookie, setSignedCookie } from 'hono/cookie';
 import { cors } from 'hono/cors';
 import { logger as requestLogger } from 'hono/logger';
 import { CookieOptions } from 'hono/utils/cookie';
 import { z } from 'zod';
 import logger from './logger';
-import { generateFileKey, isFileForUser, isValidUploadFileType } from '@/upload';
 
 const app = new Hono<{ Bindings: Env }>().basePath('/api');
 app.use(requestLogger());
@@ -529,46 +530,63 @@ app.get(
 	}
 );
 
-app.post('/upload', sessionMiddleware, async (c) => {
-	const userId = c.get('userId');
-	const body = await c.req.parseBody();
+app.post(
+	'/upload',
+	bodyLimit({
+		maxSize: 2 * 1024 * 1024, // 2MB
+		onError: (c) => {
+			c.status(413);
+			return c.json({
+				success: false,
+				error: 'File too large',
+			});
+		},
+	}),
+	sessionMiddleware,
+	async (c) => {
+		const userId = c.get('userId');
+		const body = await c.req.parseBody();
 
-	const file = body.file;
+		const file = body.file;
 
-	if (!file) {
-		logger.info('No file uploaded');
-		c.status(400);
+		if (!file) {
+			logger.info('No file uploaded');
+			c.status(400);
+			return c.json({
+				success: false,
+				error: 'No file uploaded',
+			});
+		}
+
+		if (typeof file === 'string') {
+			logger.info('File is a string');
+			c.status(400);
+			return c.json({
+				success: false,
+				error: 'File is a string',
+			});
+		}
+
+		const fileType = file.type;
+		if (!isValidUploadFileType(fileType)) {
+			logger.info('Invalid file type');
+			c.status(400);
+			return c.json({
+				success: false,
+				error: 'Invalid file type',
+			});
+		}
+
+		const fileKey = generateFileKey(userId);
+		await c.env.FILES_BUCKET.put(fileKey, file);
+		logger.info({ fileKey }, 'Uploaded file');
+
 		return c.json({
-			success: false,
+			success: true,
+			fileKey,
 		});
 	}
-
-	if (typeof file === 'string') {
-		logger.info('File is a string');
-		c.status(400);
-		return c.json({
-			success: false,
-		});
-	}
-
-	const fileType = file.type;
-	if (!isValidUploadFileType(fileType)) {
-		logger.info('Invalid file type');
-		c.status(400);
-		return c.json({
-			success: false,
-		});
-	}
-
-	const fileKey = generateFileKey(userId);
-	await c.env.FILES_BUCKET.put(fileKey, file);
-	logger.info({ fileKey }, 'Uploaded file');
-
-	return c.json({
-		success: true,
-		fileKey,
-	});
-});
+);
 
 app.get('/files/:fileUserId/:fileId', sessionMiddleware, async (c) => {
 	const fileUserId = c.req.param('fileUserId');
@@ -580,6 +598,7 @@ app.get('/files/:fileUserId/:fileId', sessionMiddleware, async (c) => {
 		c.status(403);
 		return c.json({
 			success: false,
+			error: 'File not for user',
 		});
 	}
 
@@ -588,6 +607,7 @@ app.get('/files/:fileUserId/:fileId', sessionMiddleware, async (c) => {
 		c.status(400);
 		return c.json({
 			success: false,
+			error: 'No file id',
 		});
 	}
 
@@ -599,6 +619,7 @@ app.get('/files/:fileUserId/:fileId', sessionMiddleware, async (c) => {
 		c.status(404);
 		return c.json({
 			success: false,
+			error: 'File not found',
 		});
 	}
 

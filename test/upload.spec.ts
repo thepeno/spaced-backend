@@ -78,6 +78,23 @@ describe('upload', () => {
 
 		expect(response.status).toBe(400);
 	});
+
+	it('should return 413 if file is too large', async () => {
+		const formData = new FormData();
+		const testString = 'a'.repeat(2 * 1024 * 1024 + 1);
+
+		formData.append('file', new File([testString], 'test.png', { type: 'image/png' }));
+
+		const response = await SELF.fetch('http://localhost:3000/api/upload', {
+			method: 'POST',
+			headers: {
+				Cookie: cookie,
+			},
+			body: formData,
+		});
+
+		expect(response.status).toBe(413);
+	});
 });
 
 describe('files', () => {
