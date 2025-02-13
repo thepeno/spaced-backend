@@ -33,6 +33,7 @@ import { logger as requestLogger } from 'hono/logger';
 import { CookieOptions } from 'hono/utils/cookie';
 import { z } from 'zod';
 import logger from './logger';
+import { generateFileKey, isValidUploadFileType } from '@/upload';
 
 const app = new Hono<{ Bindings: Env }>().basePath('/api');
 app.use(requestLogger());
@@ -527,5 +528,46 @@ app.get(
 		});
 	}
 );
+
+app.post('/upload', sessionMiddleware, async (c) => {
+	const userId = c.get('userId');
+	const body = await c.req.parseBody();
+
+	const file = body.file;
+
+	if (!file) {
+		logger.info('No file uploaded');
+		c.status(400);
+		return c.json({
+			success: false,
+		});
+	}
+
+	if (typeof file === 'string') {
+		logger.info('File is a string');
+		c.status(400);
+		return c.json({
+			success: false,
+		});
+	}
+
+	const fileType = file.type;
+	if (!isValidUploadFileType(fileType)) {
+		logger.info('Invalid file type');
+		c.status(400);
+		return c.json({
+			success: false,
+		});
+	}
+
+	const fileKey = generateFileKey(userId);
+	await c.env.FILES_BUCKET.put(fileKey, file);
+	logger.info({ fileKey }, 'Uploaded file');
+
+	return c.json({
+		success: true,
+		fileKey,
+	});
+});
 
 export default app;
