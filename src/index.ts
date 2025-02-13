@@ -33,7 +33,7 @@ import { logger as requestLogger } from 'hono/logger';
 import { CookieOptions } from 'hono/utils/cookie';
 import { z } from 'zod';
 import logger from './logger';
-import { generateFileKey, isValidUploadFileType } from '@/upload';
+import { generateFileKey, isFileForUser, isValidUploadFileType } from '@/upload';
 
 const app = new Hono<{ Bindings: Env }>().basePath('/api');
 app.use(requestLogger());
@@ -568,6 +568,41 @@ app.post('/upload', sessionMiddleware, async (c) => {
 		success: true,
 		fileKey,
 	});
+});
+
+app.get('/files/:fileUserId/:fileId', sessionMiddleware, async (c) => {
+	const fileUserId = c.req.param('fileUserId');
+	const fileId = c.req.param('fileId');
+
+	const userId = c.get('userId');
+	if (fileUserId !== userId) {
+		logger.info({ fileUserId, userId }, 'File not for user');
+		c.status(403);
+		return c.json({
+			success: false,
+		});
+	}
+
+	if (!fileId) {
+		logger.info('No file id');
+		c.status(400);
+		return c.json({
+			success: false,
+		});
+	}
+
+	const fileKey = `${fileUserId}/${fileId}`;
+	const file = await c.env.FILES_BUCKET.get(fileKey);
+
+	if (!file) {
+		logger.info({ fileKey }, 'File not found');
+		c.status(404);
+		return c.json({
+			success: false,
+		});
+	}
+
+	return c.body(file?.body);
 });
 
 export default app;

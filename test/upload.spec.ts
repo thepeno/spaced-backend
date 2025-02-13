@@ -1,10 +1,12 @@
+import { User } from '@/db/schema';
 import { env, SELF } from 'cloudflare:test';
 import { createTestUsers, loginTestUser } from 'test/integration/utils';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 let cookie: string;
+let user: User;
 beforeEach(async () => {
-	await createTestUsers();
+	user = await createTestUsers();
 	const { cookie: cookieFromLogin } = await loginTestUser();
 	cookie = cookieFromLogin;
 });
@@ -75,5 +77,56 @@ describe('upload', () => {
 		});
 
 		expect(response.status).toBe(400);
+	});
+});
+
+describe('files', () => {
+	it('should return 404 if no file key is provided', async () => {
+		const response = await SELF.fetch('http://localhost:3000/api/files', {
+			method: 'GET',
+			headers: {
+				Cookie: cookie,
+			},
+		});
+
+		expect(response.status).toBe(404);
+	});
+
+	it('should return 403 if file is not for user', async () => {
+		const response = await SELF.fetch('http://localhost:3000/api/files/test-user/test-file', {
+			method: 'GET',
+			headers: {
+				Cookie: cookie,
+			},
+		});
+
+		expect(response.status).toBe(403);
+	});
+
+	it('should return 404 if file is not found', async () => {
+		const response = await SELF.fetch(`http://localhost:3000/api/files/${user.id}/test-file`, {
+			method: 'GET',
+			headers: {
+				Cookie: cookie,
+			},
+		});
+
+		expect(response.status).toBe(404);
+	});
+
+	it('should return 200 if file is found', async () => {
+		const testFile = new File(['test'], 'test.png', { type: 'image/png' });
+		await env.FILES_BUCKET.put(`${user.id}/test-file`, testFile);
+
+		const response = await SELF.fetch(`http://localhost:3000/api/files/${user.id}/test-file`, {
+			method: 'GET',
+			headers: {
+				Cookie: cookie,
+			},
+		});
+
+		expect(response.status).toBe(200);
+		const file = await response.text();
+		expect(file).toBe('test');
 	});
 });
