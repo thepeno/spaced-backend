@@ -1,5 +1,5 @@
 import { DB } from '@/db';
-import { TempUser, tempUsers, users } from '@/db/schema';
+import { TempUser, tempUsers, users, userStorageMetrics } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { Resend } from 'resend';
 
@@ -153,13 +153,17 @@ export async function createUserFromTempUser(
 	tempUser: TempUser
 ): Promise<CreateUserFromTempUserResponse> {
 	try {
-		await db.delete(tempUsers).where(eq(tempUsers.id, tempUser.id));
-		await db.insert(users).values({
-			id: tempUser.id,
-			email: tempUser.email,
-			passwordHash: tempUser.passwordHash,
-		});
-
+		await db.batch([
+			db.delete(tempUsers).where(eq(tempUsers.id, tempUser.id)),
+			db.insert(users).values({
+				id: tempUser.id,
+				email: tempUser.email,
+				passwordHash: tempUser.passwordHash,
+			}),
+			db.insert(userStorageMetrics).values({
+				userId: tempUser.id,
+			}),
+		]);
 		return { success: true };
 	} catch (error) {
 		return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };

@@ -449,9 +449,67 @@ export const cardDecks = sqliteTable(
 
 export type CardDeck = typeof cardDecks.$inferSelect;
 
+// Files
+
+export const files = sqliteTable(
+	'files',
+	{
+		userId: text('user_id').notNull(),
+		// File key for the file in the bucket
+		// Excludes the user id
+		id: text('id').primaryKey(),
+		lastModified: integer('last_modified', { mode: 'timestamp_ms' })
+			.notNull()
+			.default(sql`(unixepoch() * 1000)`),
+		checksum: text('checksum').notNull(),
+		fileType: text('file_type').notNull(),
+		// Each type of file can have a different metadata schema
+		metadata: text('metadata', { mode: 'json' }).notNull(),
+		sizeInBytes: integer('size_in_bytes').notNull(),
+	},
+	(table) => [
+		foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+		}),
+		index('files_user_id').on(table.userId),
+		uniqueIndex('files_userid_checksum_idx').on(table.userId, table.checksum),
+	]
+);
+
+export type File = typeof files.$inferSelect;
+export type NewFile = typeof files.$inferInsert;
+
+// The total size in bytes is updated by triggers on the `files` table
+export const userStorageMetrics = sqliteTable(
+	'user_storage_metrics',
+	{
+		userId: text('user_id').notNull(),
+		lastModified: integer('last_modified', { mode: 'timestamp_ms' })
+			.notNull()
+			.default(sql`(unixepoch() * 1000)`),
+		totalFiles: integer('total_files').notNull().default(0),
+		// For MB/GB we don't need to worry about integer overflow
+		totalSizeInBytes: integer('total_size_in_bytes').notNull().default(0),
+		storageLimitInBytes: integer('storage_limit_in_bytes')
+			.notNull()
+			.default(100 * 1024 * 1024),
+	},
+	(table) => [
+		primaryKey({
+			columns: [table.userId],
+		}),
+		foreignKey({
+			columns: [table.userId],
+			foreignColumns: [users.id],
+		}),
+	]
+);
+
+export type UserStorageMetrics = typeof userStorageMetrics.$inferSelect;
 // Relations
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ many, one }) => ({
 	sessions: many(sessions),
 	clients: many(clients),
 	cards: many(cards),
@@ -464,6 +522,8 @@ export const usersRelations = relations(users, ({ many }) => ({
 	decks: many(decks),
 	cardDecks: many(cardDecks),
 	oauthAccounts: many(oauthAccounts),
+	files: many(files),
+	userStorageMetrics: one(userStorageMetrics),
 }));
 
 export const oauthAccountsRelations = relations(oauthAccounts, ({ one }) => ({
@@ -587,5 +647,19 @@ export const cardDecksRelations = relations(cardDecks, ({ one }) => ({
 	deck: one(decks, {
 		fields: [cardDecks.deckId],
 		references: [decks.id],
+	}),
+}));
+
+export const filesRelations = relations(files, ({ one }) => ({
+	user: one(users, {
+		fields: [files.userId],
+		references: [users.id],
+	}),
+}));
+
+export const userStorageMetricsRelations = relations(userStorageMetrics, ({ one }) => ({
+	user: one(users, {
+		fields: [userStorageMetrics.userId],
+		references: [users.id],
 	}),
 }));

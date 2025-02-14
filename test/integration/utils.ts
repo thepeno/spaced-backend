@@ -77,28 +77,37 @@ export async function createTestUsers(): Promise<schema.User> {
 		throw new Error('Failed to create user');
 	}
 
-	await db.insert(schema.oauthAccounts).values([
-		{
-			id: testOAuthUser.id,
-			userId: testOAuthUser.id,
-			provider: testOAuthUser.provider,
-			providerUserId: testOAuthUser.providerUserId,
-		},
-	]);
-
-	await db.insert(schema.clients).values([
-		{
-			id: testClientId,
-			userId: user.id,
-		},
-		{
-			id: testClientId2,
-			userId: user.id,
-		},
-		{
-			id: testUser2ClientId,
-			userId: user2.id,
-		},
+	await db.batch([
+		db.insert(schema.userStorageMetrics).values([
+			{
+				userId: user.id,
+			},
+			{
+				userId: user2.id,
+			},
+		]),
+		db.insert(schema.oauthAccounts).values([
+			{
+				id: testOAuthUser.id,
+				userId: testOAuthUser.id,
+				provider: testOAuthUser.provider,
+				providerUserId: testOAuthUser.providerUserId,
+			},
+		]),
+		db.insert(schema.clients).values([
+			{
+				id: testClientId,
+				userId: user.id,
+			},
+			{
+				id: testClientId2,
+				userId: user.id,
+			},
+			{
+				id: testUser2ClientId,
+				userId: user2.id,
+			},
+		]),
 	]);
 
 	return user;
