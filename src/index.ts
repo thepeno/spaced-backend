@@ -612,7 +612,10 @@ app.post(
 			db
 		);
 		if (!insertFileEntryIntoDbResult.success) {
-			logger.error({ fileKey }, 'Failed to insert file entry into db');
+			logger.info(
+				{ fileKey, error: insertFileEntryIntoDbResult.error },
+				'Failed to insert file entry into db'
+			);
 			// currently we only ahve storage limit exceeded error
 			c.status(413);
 			return c.json({
