@@ -23,7 +23,12 @@ import { clientIdMiddleware } from '@/middleware/clientid';
 import { sessionMiddleware } from '@/middleware/session';
 import { operationSchema } from '@/operation';
 import { getAllOpsFromSeqNoExclClient } from '@/server2client';
-import { generateFileKey, isValidUploadFileType } from '@/upload';
+import {
+	checkIfFileExists,
+	insertFileEntryIntoDb,
+	isValidUploadFileType,
+	parseFileMetadata,
+} from '@/upload';
 import { redactEmail } from '@/utils';
 import { zValidator } from '@hono/zod-validator';
 import { drizzle } from 'drizzle-orm/d1';
@@ -567,6 +572,19 @@ app.post(
 			});
 		}
 
+		const db = drizzle(c.env.D1, {
+			schema,
+		});
+		const fileExists = await checkIfFileExists(file, userId, db);
+
+		if (fileExists.success) {
+			logger.info({ fileKey: fileExists.fileKey }, 'File already exists');
+			return c.json({
+				success: true,
+				fileKey: fileExists.fileKey,
+			});
+		}
+
 		const fileType = file.type;
 		if (!isValidUploadFileType(fileType)) {
 			logger.info('Invalid file type');
@@ -577,7 +595,32 @@ app.post(
 			});
 		}
 
-		const fileKey = generateFileKey(userId);
+		const fileId = crypto.randomUUID();
+		const fileKey = `${userId}/${fileId}`;
+
+		// We insert into the database first
+		// If the triggers raise an error, we don't want to put the file into the bucket
+		const metadata = body.metadata;
+		const parsedMetadata = parseFileMetadata(file, metadata);
+
+		const insertFileEntryIntoDbResult = await insertFileEntryIntoDb(
+			file,
+			fileExists.checksum,
+			userId,
+			fileId,
+			parsedMetadata,
+			db
+		);
+		if (!insertFileEntryIntoDbResult.success) {
+			logger.error({ fileKey }, 'Failed to insert file entry into db');
+			// currently we only ahve storage limit exceeded error
+			c.status(413);
+			return c.json({
+				success: false,
+				error: insertFileEntryIntoDbResult.error,
+			});
+		}
+
 		await c.env.FILES_BUCKET.put(fileKey, file);
 		logger.info({ fileKey }, 'Uploaded file');
 

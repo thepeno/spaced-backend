@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@hono/zod-validator": "^0.4.2",
+    "crc-32": "^1.2.2",
     "drizzle-orm": "^0.38.4",
     "google-auth-library": "^9.15.1",
     "hono": "^4.6.18",

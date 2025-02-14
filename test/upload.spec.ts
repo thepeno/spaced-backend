@@ -1,10 +1,17 @@
+import * as schema from '@/db/schema';
 import { User } from '@/db/schema';
 import { env, SELF } from 'cloudflare:test';
+import { eq } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/d1';
 import { createTestUsers, loginTestUser } from 'test/integration/utils';
 import { beforeEach, describe, expect, it } from 'vitest';
-
 let cookie: string;
 let user: User;
+
+const db = drizzle(env.D1, {
+	schema,
+});
+
 beforeEach(async () => {
 	user = await createTestUsers();
 	const { cookie: cookieFromLogin } = await loginTestUser();
@@ -94,6 +101,134 @@ describe('upload', () => {
 		});
 
 		expect(response.status).toBe(413);
+	});
+
+	it('should update the user storage metrics', async () => {
+		const formData = new FormData();
+		formData.append('file', new File(['test'], 'test.png', { type: 'image/png' }));
+
+		const response = await SELF.fetch('http://localhost:3000/api/upload', {
+			method: 'POST',
+			headers: {
+				Cookie: cookie,
+			},
+			body: formData,
+		});
+
+		expect(response.status).toBe(200);
+		await response.json();
+
+		const userStorageMetrics = await db.query.userStorageMetrics.findFirst({
+			where: eq(schema.userStorageMetrics.userId, user.id),
+		});
+		expect(userStorageMetrics).toMatchObject({
+			totalSizeInBytes: 4,
+		});
+	});
+
+	it('should increase from existing metrics', async () => {
+		await db
+			.update(schema.userStorageMetrics)
+			.set({
+				totalSizeInBytes: 100,
+			})
+			.where(eq(schema.userStorageMetrics.userId, user.id));
+
+		const formData = new FormData();
+		formData.append('file', new File(['test'], 'test.png', { type: 'image/png' }));
+
+		const response = await SELF.fetch('http://localhost:3000/api/upload', {
+			method: 'POST',
+			headers: {
+				Cookie: cookie,
+			},
+			body: formData,
+		});
+
+		expect(response.status).toBe(200);
+		await response.json();
+
+		const userStorageMetrics = await db.query.userStorageMetrics.findFirst({
+			where: eq(schema.userStorageMetrics.userId, user.id),
+		});
+		expect(userStorageMetrics).toMatchObject({
+			totalSizeInBytes: 104,
+		});
+	});
+
+	it('should throw if exceeds the storage limit', async () => {
+		await db
+			.update(schema.userStorageMetrics)
+			.set({
+				storageLimitInBytes: 1,
+			})
+			.where(eq(schema.userStorageMetrics.userId, user.id));
+
+		const formData = new FormData();
+		formData.append('file', new File(['test'], 'test.png', { type: 'image/png' }));
+
+		const response = await SELF.fetch('http://localhost:3000/api/upload', {
+			method: 'POST',
+			headers: {
+				Cookie: cookie,
+			},
+			body: formData,
+		});
+
+		expect(response.status).toBe(413);
+		const data = await response.json();
+		expect(data).toMatchObject({
+			success: false,
+			error: 'Storage limit exceeded',
+		});
+
+		const allObjects = await env.FILES_BUCKET.list();
+		expect(allObjects.objects.length).toBe(0);
+	});
+
+	it.only('should return the same key if a duplicate file is uploaded', async () => {
+		const formData = new FormData();
+		formData.append('file', new File(['test'], 'test.png', { type: 'image/png' }));
+
+		const response = await SELF.fetch('http://localhost:3000/api/upload', {
+			method: 'POST',
+			headers: {
+				Cookie: cookie,
+			},
+			body: formData,
+		});
+
+		expect(response.status).toBe(200);
+		const data = await response.json();
+		expect(data).toMatchObject({
+			success: true,
+			fileKey: expect.any(String),
+		});
+		const fileKey = (data as { fileKey: string }).fileKey;
+
+		// Check that the file exists in the db
+		const file = await db.query.files.findFirst({
+			where: eq(schema.files.id, fileKey.split('/')[1]),
+		});
+		expect(file).toMatchObject({
+			checksum: expect.any(String),
+		});
+
+		const response2 = await SELF.fetch('http://localhost:3000/api/upload', {
+			method: 'POST',
+			headers: {
+				Cookie: cookie,
+			},
+			body: formData,
+		});
+
+		expect(response2.status).toBe(200);
+		const data2 = await response2.json();
+		expect(data2).toMatchObject({
+			success: true,
+			fileKey: expect.any(String),
+		});
+		expect((data2 as { fileKey: string }).fileKey).toBe(fileKey);
 	});
 });
 
