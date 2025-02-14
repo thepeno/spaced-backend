@@ -252,5 +252,6 @@ AFTER DELETE ON \`files\`
 FOR EACH ROW
 BEGIN
 	UPDATE \`user_storage_metrics\` SET \`total_size_in_bytes\` = \`total_size_in_bytes\` - OLD.\`size_in_bytes\` WHERE \`user_id\` = OLD.\`user_id\`;
-END;
+END;--> statement-breakpoint
+;
 `;
