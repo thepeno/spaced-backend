@@ -71,7 +71,7 @@ const makeProdCookieOptions: () => CookieOptions = () => ({
 	secure: true,
 	// sameSite: 'None', // Removed for same-origin authentication flow
 	// ?: is this needed?
-	// domain: '.zsheng.app', // Allow all subdomains
+	domain: '.palavracadabra.com', // Allow all subdomains
 	path: '/', // Accessible across all paths
 });
 

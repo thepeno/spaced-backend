@@ -22,7 +22,7 @@
 	],
 	"vars": {
 		"WORKER_ENV": "production",
-		"FRONTEND_ORIGIN": "https://spaced2.pages.dev"
+		"FRONTEND_ORIGIN": "https://palavracadabra.com"
 	},
 	"env": {
 		"local": {
