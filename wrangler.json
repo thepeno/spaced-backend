@@ -22,7 +22,7 @@
 	],
 	"vars": {
 		"WORKER_ENV": "production",
-		"FRONTEND_ORIGIN": "https://spaced2.pages.dev/"
+		"FRONTEND_ORIGIN": "https://spaced2.pages.dev"
 	},
 	"env": {
 		"local": {
@@ -45,11 +45,5 @@
 				}
 			]
 		}
-	},
-	"routes": [
-		{
-			"pattern": "api.spaced2.pages.app",
-			"custom_domain": true
-		}
-	]
+	}
 }

@@ -69,10 +69,10 @@ const makeProdCookieOptions: () => CookieOptions = () => ({
 	expires: new Date(Date.now() + COOKIE_EXPIRATION_TIME_MS),
 	httpOnly: true,
 	secure: true,
+	// sameSite: 'None', // Removed for same-origin authentication flow
 	// ?: is this needed?
 	// domain: '.zsheng.app', // Allow all subdomains
-	// path: '/', // Accessible across all paths
-	// sameSite: 'Lax', // Or 'None' if needed for cross-origin (requires Secure)
+	path: '/', // Accessible across all paths
 });
 
 app.get('/', (c) => {
@@ -218,6 +218,15 @@ app.post(
 
 		const cookieOptions =
 			c.env.WORKER_ENV === 'local' ? makeDevCookieOptions() : makeProdCookieOptions();
+		
+		// Debug logging for cookie setting
+		console.log('Setting cookie in /auth/verify:', {
+			cookieOptions,
+			sessionId: createSessionResult.session,
+			cookieName: SESSION_COOKIE_NAME,
+			workerEnv: c.env.WORKER_ENV
+		});
+		
 		setSignedCookie(
 			c,
 			SESSION_COOKIE_NAME,
@@ -225,6 +234,8 @@ app.post(
 			c.env.COOKIE_SECRET,
 			cookieOptions
 		);
+		
+		console.log('Cookie set successfully in /auth/verify');
 
 		logger.info({ email: redactEmail(email) }, 'verify request successful');
 		return c.json({
@@ -350,6 +361,15 @@ app.post(
 
 		const cookieOptions =
 			c.env.WORKER_ENV === 'local' ? makeDevCookieOptions() : makeProdCookieOptions();
+		
+		// Debug logging for cookie setting
+		console.log('Setting cookie in /auth/login:', {
+			cookieOptions,
+			sessionId: createSessionResult.session,
+			cookieName: SESSION_COOKIE_NAME,
+			workerEnv: c.env.WORKER_ENV
+		});
+		
 		setSignedCookie(
 			c,
 			SESSION_COOKIE_NAME,
@@ -357,6 +377,8 @@ app.post(
 			c.env.COOKIE_SECRET,
 			cookieOptions
 		);
+		
+		console.log('Cookie set successfully in /auth/login');
 		logger.info({ email: redactEmail(email) }, 'Login request successful');
 		return c.json({
 			success: true,
@@ -423,7 +445,7 @@ app.post('/auth/google', async (c) => {
 
 	const payload = await extractGooglePayload(
 		credential,
-		'421029814925-ogt7pqsgo2j7f1bnjajk02aiasrcrf2f.apps.googleusercontent.com'
+		c.env.GOOGLE_CLIENT_ID
 	);
 
 	const db = drizzle(c.env.D1, {
@@ -456,6 +478,15 @@ app.post('/auth/google', async (c) => {
 
 	const cookieOptions =
 		c.env.WORKER_ENV === 'local' ? makeDevCookieOptions() : makeProdCookieOptions();
+	
+	// Debug logging for cookie setting
+	console.log('Setting cookie in /auth/google:', {
+		cookieOptions,
+		sessionId: createSessionResult.session,
+		cookieName: SESSION_COOKIE_NAME,
+		workerEnv: c.env.WORKER_ENV
+	});
+	
 	setSignedCookie(
 		c,
 		SESSION_COOKIE_NAME,
@@ -463,6 +494,8 @@ app.post('/auth/google', async (c) => {
 		c.env.COOKIE_SECRET,
 		cookieOptions
 	);
+	
+	console.log('Cookie set successfully in /auth/google');
 
 	const clientId = await createClientId(drizzle(c.env.D1), createOrSignInGoogleUserResult.user.id);
 

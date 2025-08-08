@@ -7,6 +7,7 @@ interface Env {
 	RESEND_API_KEY: string;
 	FILES_BUCKET: R2Bucket; 
 	D1: D1Database;
+	GOOGLE_CLIENT_ID: string;
 }
 
 declare module 'cloudflare:test' {
