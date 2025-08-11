@@ -4,8 +4,10 @@ import {
 	CardBookmarkedOperation,
 	CardContentOperation,
 	CardDeletedOperation,
+	CardExampleSentenceOperation,
 	CardOperation,
 	CardSuspendedOperation,
+	DeckLanguagesOperation,
 	DeckOperation,
 	Operation,
 	ReviewLogDeletedOperation,
@@ -344,6 +346,80 @@ async function getDeckFromSeqNo(
 	}));
 }
 
+async function getDeckLanguagesFromSeqNo(
+	db: DB,
+	userId: string,
+	requestingClientId: string,
+	seqNo: number
+): Promise<ServerToClient<DeckLanguagesOperation>[]> {
+	const deckLanguages = await db
+		.select({
+			deckId: schema.deckLanguages.deckId,
+			seqNo: schema.deckLanguages.seqNo,
+			lastModified: schema.deckLanguages.lastModified,
+			nativeLanguage: schema.deckLanguages.nativeLanguage,
+			targetLanguage: schema.deckLanguages.targetLanguage,
+		})
+		.from(schema.users)
+		.where(eq(schema.users.id, userId))
+		.innerJoin(
+			schema.deckLanguages,
+			and(
+				eq(schema.users.id, schema.deckLanguages.userId),
+				gt(schema.deckLanguages.seqNo, seqNo),
+				ne(schema.deckLanguages.lastModifiedClient, requestingClientId)
+			)
+		);
+
+	return deckLanguages.map((deckLanguage) => ({
+		type: 'deckLanguages',
+		seqNo: deckLanguage.seqNo,
+		timestamp: deckLanguage.lastModified.getTime(),
+		payload: {
+			deckId: deckLanguage.deckId,
+			nativeLanguage: deckLanguage.nativeLanguage,
+			targetLanguage: deckLanguage.targetLanguage,
+		},
+	}));
+}
+
+async function getCardExampleSentencesFromSeqNo(
+	db: DB,
+	userId: string,
+	requestingClientId: string,
+	seqNo: number
+): Promise<ServerToClient<CardExampleSentenceOperation>[]> {
+	const cardExampleSentences = await db
+		.select({
+			cardId: schema.cardExampleSentences.cardId,
+			seqNo: schema.cardExampleSentences.seqNo,
+			lastModified: schema.cardExampleSentences.lastModified,
+			exampleSentence: schema.cardExampleSentences.exampleSentence,
+			exampleSentenceTranslation: schema.cardExampleSentences.exampleSentenceTranslation,
+		})
+		.from(schema.users)
+		.where(eq(schema.users.id, userId))
+		.innerJoin(
+			schema.cardExampleSentences,
+			and(
+				eq(schema.users.id, schema.cardExampleSentences.userId),
+				gt(schema.cardExampleSentences.seqNo, seqNo),
+				ne(schema.cardExampleSentences.lastModifiedClient, requestingClientId)
+			)
+		);
+
+	return cardExampleSentences.map((cardExampleSentence) => ({
+		type: 'cardExampleSentence',
+		seqNo: cardExampleSentence.seqNo,
+		timestamp: cardExampleSentence.lastModified.getTime(),
+		payload: {
+			cardId: cardExampleSentence.cardId,
+			exampleSentence: cardExampleSentence.exampleSentence,
+			exampleSentenceTranslation: cardExampleSentence.exampleSentenceTranslation,
+		},
+	}));
+}
+
 async function getDeckCardFromSeqNo(
 	db: DB,
 	userId: string,
@@ -404,6 +480,8 @@ export async function getAllOpsFromSeqNoExclClient(
 		getCardBookmarkedFromSeqNo(db, userId, requestingClientId, seqNo),
 		getCardSuspendedFromSeqNo(db, userId, requestingClientId, seqNo),
 		getDeckFromSeqNo(db, userId, requestingClientId, seqNo),
+		getDeckLanguagesFromSeqNo(db, userId, requestingClientId, seqNo),
+		getCardExampleSentencesFromSeqNo(db, userId, requestingClientId, seqNo),
 		getDeckCardFromSeqNo(db, userId, requestingClientId, seqNo),
 	]);
 

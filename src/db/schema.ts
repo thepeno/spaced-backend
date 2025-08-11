@@ -277,6 +277,39 @@ export const cardContents = sqliteTable(
 
 export type CardContent = typeof cardContents.$inferSelect;
 
+export const cardExampleSentences = sqliteTable(
+	'card_example_sentences',
+	{
+		userId: text('user_id').notNull(),
+		cardId: text('card_id').notNull(),
+		exampleSentence: text('example_sentence'),
+		exampleSentenceTranslation: text('example_sentence_translation'),
+		lastModified: integer('last_modified', { mode: 'timestamp_ms' })
+			.notNull()
+			.default(sql`(unixepoch() * 1000)`),
+		seqNo: integer('seq_no').notNull(),
+		lastModifiedClient: text('last_modified_client')
+			.notNull()
+			.references(() => clients.id),
+	},
+	(table) => [
+		primaryKey({
+			columns: [table.userId, table.cardId],
+		}),
+		foreignKey({
+			columns: [table.userId, table.cardId],
+			foreignColumns: [cards.userId, cards.id],
+		}),
+		index('card_example_sentences_user_id_seq_no_modified_client_idx').on(
+			table.userId,
+			table.seqNo,
+			table.lastModifiedClient
+		),
+	]
+);
+
+export type CardExampleSentence = typeof cardExampleSentences.$inferSelect;
+
 export const cardDeleted = sqliteTable(
 	'card_deleted',
 	{
@@ -411,6 +444,39 @@ export const decks = sqliteTable(
 
 export type Deck = typeof decks.$inferSelect;
 
+export const deckLanguages = sqliteTable(
+	'deck_languages',
+	{
+		userId: text('user_id').notNull(),
+		deckId: text('deck_id').notNull(),
+		nativeLanguage: text('native_language'),
+		targetLanguage: text('target_language'),
+		lastModified: integer('last_modified', { mode: 'timestamp_ms' })
+			.notNull()
+			.default(sql`(unixepoch() * 1000)`),
+		seqNo: integer('seq_no').notNull(),
+		lastModifiedClient: text('last_modified_client')
+			.notNull()
+			.references(() => clients.id),
+	},
+	(table) => [
+		primaryKey({
+			columns: [table.userId, table.deckId],
+		}),
+		foreignKey({
+			columns: [table.userId, table.deckId],
+			foreignColumns: [decks.userId, decks.id],
+		}),
+		index('deck_languages_user_id_seq_no_modified_client_idx').on(
+			table.userId,
+			table.seqNo,
+			table.lastModifiedClient
+		),
+	]
+);
+
+export type DeckLanguage = typeof deckLanguages.$inferSelect;
+
 export const cardDecks = sqliteTable(
 	'card_decks',
 	{
@@ -516,10 +582,12 @@ export const usersRelations = relations(users, ({ many, one }) => ({
 	reviewLogs: many(reviewLogs),
 	reviewLogDeleted: many(reviewLogDeleted),
 	cardContents: many(cardContents),
+	cardExampleSentences: many(cardExampleSentences),
 	cardDeleted: many(cardDeleted),
 	cardBookmarked: many(cardBookmarked),
 	cardSuspended: many(cardSuspended),
 	decks: many(decks),
+	deckLanguages: many(deckLanguages),
 	cardDecks: many(cardDecks),
 	oauthAccounts: many(oauthAccounts),
 	files: many(files),
@@ -553,6 +621,7 @@ export const cardsRelations = relations(cards, ({ one, many }) => ({
 		references: [users.id],
 	}),
 	cardContents: one(cardContents),
+	cardExampleSentences: one(cardExampleSentences),
 	cardDeleted: one(cardDeleted),
 	cardBookmarked: one(cardBookmarked),
 	cardSuspended: one(cardSuspended),
@@ -594,6 +663,17 @@ export const cardContentsRelations = relations(cardContents, ({ one }) => ({
 	}),
 }));
 
+export const cardExampleSentencesRelations = relations(cardExampleSentences, ({ one }) => ({
+	card: one(cards, {
+		fields: [cardExampleSentences.cardId],
+		references: [cards.id],
+	}),
+	user: one(users, {
+		fields: [cardExampleSentences.userId],
+		references: [users.id],
+	}),
+}));
+
 export const cardDeletedRelations = relations(cardDeleted, ({ one }) => ({
 	card: one(cards, {
 		fields: [cardDeleted.cardId],
@@ -629,8 +709,20 @@ export const cardSuspendedRelations = relations(cardSuspended, ({ one }) => ({
 
 export const decksRelations = relations(decks, ({ many, one }) => ({
 	cardDecks: many(cardDecks),
+	deckLanguages: one(deckLanguages),
 	user: one(users, {
 		fields: [decks.userId],
+		references: [users.id],
+	}),
+}));
+
+export const deckLanguagesRelations = relations(deckLanguages, ({ one }) => ({
+	deck: one(decks, {
+		fields: [deckLanguages.deckId],
+		references: [decks.id],
+	}),
+	user: one(users, {
+		fields: [deckLanguages.userId],
 		references: [users.id],
 	}),
 }));

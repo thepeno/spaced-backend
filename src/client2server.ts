@@ -4,8 +4,10 @@ import {
 	CardBookmarkedOperation,
 	CardContentOperation,
 	CardDeletedOperation,
+	CardExampleSentenceOperation,
 	CardOperation,
 	CardSuspendedOperation,
+	DeckLanguagesOperation,
 	DeckOperation,
 	Operation,
 	ReviewLogDeletedOperation,
@@ -331,6 +333,72 @@ export function handleDeckOperation(op: ClientToServer<DeckOperation>, db: DB, s
 		});
 }
 
+export function handleDeckLanguagesOperation(
+	op: ClientToServer<DeckLanguagesOperation>,
+	db: DB,
+	seqNo: number
+) {
+	return db
+		.insert(schema.deckLanguages)
+		.values({
+			userId: op.userId,
+			deckId: op.payload.deckId,
+			nativeLanguage: op.payload.nativeLanguage,
+			targetLanguage: op.payload.targetLanguage,
+			lastModified: new Date(op.timestamp),
+			lastModifiedClient: op.clientId,
+			seqNo,
+		})
+		.onConflictDoUpdate({
+			target: [schema.deckLanguages.userId, schema.deckLanguages.deckId],
+			set: {
+				nativeLanguage: op.payload.nativeLanguage,
+				targetLanguage: op.payload.targetLanguage,
+				lastModified: new Date(op.timestamp),
+				lastModifiedClient: op.clientId,
+				seqNo,
+			},
+			setWhere: sql`
+		excluded.last_modified > ${schema.deckLanguages.lastModified}
+		OR (excluded.last_modified = ${schema.deckLanguages.lastModified}
+			AND excluded.last_modified_client > ${schema.deckLanguages.lastModifiedClient})
+		`,
+		});
+}
+
+export function handleCardExampleSentenceOperation(
+	op: ClientToServer<CardExampleSentenceOperation>,
+	db: DB,
+	seqNo: number
+) {
+	return db
+		.insert(schema.cardExampleSentences)
+		.values({
+			userId: op.userId,
+			cardId: op.payload.cardId,
+			exampleSentence: op.payload.exampleSentence,
+			exampleSentenceTranslation: op.payload.exampleSentenceTranslation,
+			lastModified: new Date(op.timestamp),
+			lastModifiedClient: op.clientId,
+			seqNo,
+		})
+		.onConflictDoUpdate({
+			target: [schema.cardExampleSentences.userId, schema.cardExampleSentences.cardId],
+			set: {
+				exampleSentence: op.payload.exampleSentence,
+				exampleSentenceTranslation: op.payload.exampleSentenceTranslation,
+				lastModified: new Date(op.timestamp),
+				lastModifiedClient: op.clientId,
+				seqNo,
+			},
+			setWhere: sql`
+		excluded.last_modified > ${schema.cardExampleSentences.lastModified}
+		OR (excluded.last_modified = ${schema.cardExampleSentences.lastModified}
+			AND excluded.last_modified_client > ${schema.cardExampleSentences.lastModifiedClient})
+		`,
+		});
+}
+
 // Card - Deck relation modelled using a CLSet
 // If the count is even, the card is in the deck
 // The join operation just takes the max of the two counts
@@ -383,6 +451,10 @@ export function operationToBatchItem(
 			return handleCardSuspendedOperation(op, db, seqNo);
 		case 'deck':
 			return handleDeckOperation(op, db, seqNo);
+		case 'deckLanguages':
+			return handleDeckLanguagesOperation(op, db, seqNo);
+		case 'cardExampleSentence':
+			return handleCardExampleSentenceOperation(op, db, seqNo);
 		case 'updateDeckCard':
 			return handleUpdateDeckCardOperation(op, db, seqNo);
 	}

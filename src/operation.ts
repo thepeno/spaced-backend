@@ -150,6 +150,38 @@ export const deckOperationSchema = z.object({
 	timestamp: z.number(),
 }) satisfies z.ZodType<DeckOperation>;
 
+export type DeckLanguagesOperation = {
+	type: 'deckLanguages';
+	payload: StripMetadata<schema.DeckLanguage>;
+	timestamp: number;
+};
+
+export const deckLanguagesOperationSchema = z.object({
+	type: z.literal('deckLanguages'),
+	payload: z.object({
+		deckId: z.string(),
+		nativeLanguage: z.string().nullable(),
+		targetLanguage: z.string().nullable(),
+	}),
+	timestamp: z.number(),
+}) satisfies z.ZodType<DeckLanguagesOperation>;
+
+export type CardExampleSentenceOperation = {
+	type: 'cardExampleSentence';
+	payload: StripMetadata<schema.CardExampleSentence>;
+	timestamp: number;
+};
+
+export const cardExampleSentenceOperationSchema = z.object({
+	type: z.literal('cardExampleSentence'),
+	payload: z.object({
+		cardId: z.string(),
+		exampleSentence: z.string().nullable(),
+		exampleSentenceTranslation: z.string().nullable(),
+	}),
+	timestamp: z.number(),
+}) satisfies z.ZodType<CardExampleSentenceOperation>;
+
 export type UpdateDeckCardOperation = {
 	type: 'updateDeckCard';
 	payload: StripMetadata<schema.CardDeck>;
@@ -175,6 +207,8 @@ export type Operation =
 	| CardBookmarkedOperation
 	| CardSuspendedOperation
 	| DeckOperation
+	| DeckLanguagesOperation
+	| CardExampleSentenceOperation
 	| UpdateDeckCardOperation;
 
 export const operationSchema = z.union([
@@ -186,5 +220,7 @@ export const operationSchema = z.union([
 	cardBookmarkedOperationSchema,
 	cardSuspendedOperationSchema,
 	deckOperationSchema,
+	deckLanguagesOperationSchema,
+	cardExampleSentenceOperationSchema,
 	updateDeckCardOperationSchema,
 ]);
