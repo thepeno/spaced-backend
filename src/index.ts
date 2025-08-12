@@ -39,6 +39,7 @@ import { cors } from 'hono/cors';
 import { logger as requestLogger } from 'hono/logger';
 import { CookieOptions } from 'hono/utils/cookie';
 import { z } from 'zod';
+import OpenAI from 'openai';
 import logger from './logger';
 
 const app = new Hono<{ Bindings: Env }>().basePath('/api');
@@ -704,5 +705,202 @@ app.get('/files/:fileUserId/:fileId', sessionMiddleware, async (c) => {
 
 	return c.body(file?.body);
 });
+
+app.post(
+	'/generate-card',
+	sessionMiddleware,
+	zValidator(
+		'json',
+		z.object({
+			word: z.string().min(1).max(100),
+			nativeLanguage: z.string().optional(),
+			targetLanguage: z.string().optional(),
+		})
+	),
+	async (c) => {
+		const { word, nativeLanguage = 'English', targetLanguage = 'Spanish' } = c.req.valid('json');
+		
+		if (!c.env.OPENAI_API_KEY) {
+			logger.error('OpenAI API key not configured');
+			c.status(500);
+			return c.json({
+				success: false,
+				error: 'AI service not configured',
+			});
+		}
+
+		try {
+			const openai = new OpenAI({
+				apiKey: c.env.OPENAI_API_KEY,
+			});
+
+			const instructions = 'You are a language learning assistant. Generate accurate flashcards with proper translations and example sentences. Always respond with valid JSON only.';
+			
+			const input = `Create a flashcard for learning the word "${word}" in ${targetLanguage}. Return ONLY a JSON object with these exact keys:
+{
+  "front": "${word}",
+  "back": "translation in ${nativeLanguage}",
+  "exampleSentence": "example sentence in ${targetLanguage} using ${word}",
+  "exampleSentenceTranslation": "translation of the example sentence in ${nativeLanguage}"
+}`;
+
+			logger.info({ word, targetLanguage, nativeLanguage }, 'Calling OpenAI Responses API for card generation');
+
+			// Define types for the new responses API
+			type OpenAIResponse = {
+				id: string;
+				model: string;
+				output: Array<{
+					id: string;
+					type: string;
+					role?: string;
+					content?: Array<{
+						type: string;
+						text: string;
+						annotations?: unknown[];
+					}>;
+				}>;
+				usage?: {
+					input_tokens: number;
+					output_tokens: number;
+					total_tokens: number;
+				};
+				output_text?: string;
+				status?: string;
+				error?: unknown;
+			};
+
+			type OpenAIClient = OpenAI & {
+				responses: {
+					create: (params: {
+						model: string;
+						instructions: string;
+						input: string;
+						text: {
+							format: {
+								type: string;
+							};
+							verbosity: string;
+						};
+						reasoning: {
+							effort: string;
+						};
+						max_output_tokens: number;
+						store: boolean;
+					}) => Promise<OpenAIResponse>;
+				};
+			};
+
+			// Use the OpenAI SDK's responses.create() method
+			const response = await (openai as OpenAIClient).responses.create({
+				model: 'gpt-5-nano',
+				instructions,
+				input,
+				text: {
+					format: {
+						type: 'text'
+					},
+					verbosity: 'medium'
+				},
+				reasoning: {
+					effort: 'low'
+				},
+				max_output_tokens: 800,
+				store: true,
+			});
+
+			// Log the complete response structure for debugging
+			logger.info({ 
+				fullResponse: JSON.stringify(response, null, 2)
+			}, 'Complete OpenAI Responses API response');
+
+			logger.info({ 
+				response: {
+					id: response.id,
+					model: response.model,
+					output: response.output,
+					usage: response.usage,
+					output_text: response.output_text,
+					status: response.status,
+					error: response.error
+				}
+			}, 'OpenAI Responses API response summary');
+
+			// Extract content from response
+			let content: string | undefined = response.output_text;
+			
+			// If output_text is empty, look for message content in the output array
+			if (!content || content.trim() === '') {
+				for (const outputItem of response.output || []) {
+					if (outputItem.type === 'message' && outputItem.content) {
+						for (const contentItem of outputItem.content) {
+							if (contentItem.type === 'output_text' && contentItem.text) {
+								content = contentItem.text;
+								break;
+							}
+						}
+					}
+					if (content) break;
+				}
+			}
+			
+			// If we still don't have content, check if there's reasoning that we can use
+			if (!content || content.trim() === '') {
+				logger.error({ 
+					response,
+					fullResponse: JSON.stringify(response, null, 2),
+					outputArray: response.output,
+					outputLength: response.output?.length,
+					firstOutput: response.output?.[0],
+					outputText: response.output_text,
+					reasoning: response.output?.find(item => item.type === 'reasoning')
+				}, 'No text content received from AI - only reasoning output');
+				
+				// Try a different approach - maybe we need to use a different model or parameters
+				throw new Error('No text content received from AI - model only produced reasoning output. The model may not support text generation with current parameters.');
+			}
+
+			let generatedCard;
+			try {
+				generatedCard = JSON.parse(content);
+			} catch (parseError) {
+				logger.error({ content, parseError }, 'Failed to parse AI response');
+				throw new Error('Invalid response format from AI');
+			}
+
+			// Validate required fields
+			if (!generatedCard.front || !generatedCard.back || !generatedCard.exampleSentence || !generatedCard.exampleSentenceTranslation) {
+				throw new Error('Incomplete flashcard data from AI');
+			}
+
+			logger.info({ generatedCard }, 'Successfully generated flashcard');
+
+			return c.json({
+				success: true,
+				data: {
+					front: generatedCard.front,
+					back: generatedCard.back,
+					exampleSentence: generatedCard.exampleSentence,
+					exampleSentenceTranslation: generatedCard.exampleSentenceTranslation,
+				},
+			});
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			const errorDetails = error instanceof Error && 'response' in error ? (error as unknown as { response?: unknown }).response : undefined;
+			logger.error({ 
+				word, 
+				error: errorMessage,
+				errorDetails,
+				stack: error instanceof Error ? error.stack : undefined
+			}, 'Failed to generate flashcard');
+			c.status(500);
+			return c.json({
+				success: false,
+				error: 'Failed to generate flashcard',
+				details: errorMessage  // Include error details in response for debugging
+			});
+		}
+	}
+);
 
 export default app;

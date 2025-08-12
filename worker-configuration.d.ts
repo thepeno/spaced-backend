@@ -8,6 +8,7 @@ interface Env {
 	FILES_BUCKET: R2Bucket; 
 	D1: D1Database;
 	GOOGLE_CLIENT_ID: string;
+	OPENAI_API_KEY: string;
 }
 
 declare module 'cloudflare:test' {

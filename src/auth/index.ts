@@ -81,7 +81,7 @@ export async function verifyPassword(
 			result |= attemptHash[i] ^ originalHash[i];
 		}
 		return result === 0;
-	} catch (e) {
+	} catch (_e) {
 		return false;
 	}
 }
@@ -217,7 +217,7 @@ export async function createSession(db: DB, userId: string): Promise<CreateSessi
 			success: true,
 			session: session.id,
 		};
-	} catch (e) {
+	} catch (_e) {
 		return {
 			success: false,
 			error: SESSION_CREATION_ERROR_MSG,
