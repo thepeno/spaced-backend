@@ -41,6 +41,7 @@
     "nanoid": "^5.0.9",
     "openai": "^5.12.2",
     "pino": "^9.6.0",
+    "react-circle-flags": "^0.0.23",
     "resend": "^4.1.2",
     "vite-tsconfig-paths": "^5.1.4",
     "zod": "^3.24.1"
